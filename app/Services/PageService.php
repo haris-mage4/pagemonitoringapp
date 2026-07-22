@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Page;
+use App\Models\Scan;
 use App\Models\Website;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -13,9 +14,37 @@ class PageService
         return $website->pages()->get();
     }
 
-    public function find(Page $page): Page
+    /**
+     * @return array<string, mixed>
+     */
+    public function details(Page $page): array
     {
-        return $page->load('website');
+        $page->load('website');
+
+        $scanHistory = Scan::where('page_id', $page->id)
+            ->with('scanResult')
+            ->latest('finished_at')
+            ->get();
+
+        $latestScan = $scanHistory->first();
+
+        $performanceHistory = $scanHistory
+            ->reverse()
+            ->values()
+            ->map(fn (Scan $scan) => [
+                'scanned_at' => $scan->created_at,
+                'performance' => $scan->scanResult?->performance,
+            ])
+            ->filter(fn ($row) => $row['performance'] !== null)
+            ->values();
+
+        return [
+            'page' => $page,
+            'latest_scan' => $latestScan,
+            'scan_history' => $scanHistory,
+            'performance_history' => $performanceHistory,
+            'raw_report' => $latestScan?->scanResult?->raw_json,
+        ];
     }
 
     public function create(Website $website, array $data): Page

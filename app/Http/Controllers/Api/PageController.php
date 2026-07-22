@@ -27,7 +27,7 @@ class PageController extends Controller
 
     public function show(Page $page): JsonResponse
     {
-        return response()->json($this->pages->find($page));
+        return response()->json($this->pages->details($page));
     }
 
     public function update(UpdatePageRequest $request, Page $page): JsonResponse

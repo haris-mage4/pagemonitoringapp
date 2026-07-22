@@ -4,13 +4,13 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 10 — Website Details UI** — done, uncommitted on branch.
-**Branch: `phase-10-website-details`.**
-**Phases 0–9 merged to `master` (committed).**
+**Phase: 11 — Page Details UI** — done, uncommitted on branch.
+**Branch: `phase-11-page-details`.**
+**Phases 0–10 merged to `master` (committed).**
 
 ## Next Step
 
-Review diff, commit/merge, start Phase 11 — Page Details UI on branch `phase-11-page-details`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod. Custom date-range picker for trend charts is still unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons) — needed to fully satisfy CLAUDE.md's "every chart supports a custom range" requirement.
+Review diff, commit/merge, start Phase 12 — Manual Scan Trigger + Polish on branch `phase-12-manual-trigger-polish`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod. Custom date-range picker for trend charts is still unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons) — needed to fully satisfy CLAUDE.md's "every chart supports a custom range" requirement.
 
 ## Log
 
@@ -100,3 +100,9 @@ Verified against real MariaDB + database queue: dispatched ScanWebsiteJob for a 
 - Frontend: `WebsiteTable` (list page, links into details), `WebsiteCard` (name/environment/enabled + current vs previous score with a colored delta + next-scheduled-scan), reused `TrendChart` for the performance-history chart by making its range-button row conditional (`onRangeChange` optional) instead of writing a second chart component — history has no independent range control, so just don't render the buttons.
 - `Websites.jsx` and `WebsiteDetails.jsx` wired to `GET /websites` and `GET /websites/{id}` respectively.
 - Verified against real MariaDB, in a real headless-Chrome screenshot (not just build/curl): confirmed the current/previous score delta (`24` vs `79` → `-55`, colored red), `next_scheduled_scan` matching the `every_6_hours` math (last scan 22:43 + 6h = 04:43 next day), and the pages list showing each page's own latest score/status — all real seeded values, not placeholders. Caught and fixed one cosmetic bug: `schedule.replace('_', ' ')` only replaced the first underscore ("Every 6_hours") — switched to `replaceAll`.
+
+### 2026-07-22 (Phase 11 page details)
+- `PageService::details(Page)` replaces `find()` (deleted, no other callers) as what `PageController::show()` returns — bundles `page` (with `website`), `latest_scan`, `scan_history` (all scans for the page, newest first, each with its own `scan_result`), `performance_history` (chronological, `performance` non-null rows only — a scan with no `scan_result` yet, or a failed scan with a null `performance`, is skipped rather than plotted as a gap), `raw_report` (latest scan's `scan_results.raw_json`, `null` if none).
+- Frontend: `ScanHistoryTable` (finished time, trigger, status, performance/LCP/CLS/TBT columns), `RawReportViewer` (collapsed by default — a full Lighthouse JSON dump is large, no reason to render it unless asked for), reused `MetricCard` for the four latest-metric tiles and `TrendChart` (no range buttons, same pattern as Phase 10's performance history) for the trend.
+- `PageDetails.jsx` wired to `GET /pages/{id}`, includes a back-link to the parent website.
+- Verified against real MariaDB in a real headless-Chrome screenshot: latest metrics (78/2672/0.054/112), scan history row, and raw-report toggle all showing real seeded data, not placeholders.

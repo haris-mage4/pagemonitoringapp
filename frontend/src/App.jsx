@@ -1,9 +1,25 @@
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import AppLayout from './layouts/AppLayout'
+import Dashboard from './pages/Dashboard'
+import Websites from './pages/Websites'
+import WebsiteDetails from './pages/WebsiteDetails'
+import PageDetails from './pages/PageDetails'
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <AppLayout />,
+    children: [
+      { index: true, element: <Dashboard /> },
+      { path: 'websites', element: <Websites /> },
+      { path: 'websites/:websiteId', element: <WebsiteDetails /> },
+      { path: 'pages/:pageId', element: <PageDetails /> },
+    ],
+  },
+])
+
 function App() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <h1 className="text-2xl font-medium text-gray-900">PageSpeed Monitor</h1>
-    </div>
-  )
+  return <RouterProvider router={router} />
 }
 
 export default App

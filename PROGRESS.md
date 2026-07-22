@@ -4,13 +4,13 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 7 — Dashboard API** — done, uncommitted on branch.
-**Branch: `phase-7-dashboard-api`.**
-**Phases 0–6 merged to `master` (committed).**
+**Phase: 8 — React App Shell** — done, uncommitted on branch.
+**Branch: `phase-8-react-shell`.**
+**Phases 0–7 merged to `master` (committed).**
 
 ## Next Step
 
-Review diff, commit/merge, start Phase 8 — React App Shell on branch `phase-8-react-shell`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod.
+Review diff, commit/merge, start Phase 9 — Dashboard UI on branch `phase-9-dashboard-ui`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod.
 
 ## Log
 
@@ -81,3 +81,9 @@ Verified against real MariaDB + database queue: dispatched ScanWebsiteJob for a 
 - Registered in `routes/console.php` via `Schedule::command(...)->everyMinute()->withoutOverlapping()` (Laravel 12's routes/console.php scheduling, no `Kernel.php` — command polls every minute and only actually dispatches for websites whose interval elapsed, rather than trying to register a distinct cron expression per website's `schedule` value at boot).
 - **Bug caught during smoke testing:** `now()->diffInMinutes($lastScannedAt)` returned a *negative* number — this Carbon version stopped defaulting to absolute-value diffs. Wrapped in `abs()`. Confirms why "verify against real DB, don't trust syntax-only checks" matters — this would've silently made every website perpetually "not due."
 - Verified against real MariaDB: ran the command with fresh seed data (nothing due, 0 jobs queued — correct, seeder scans are recent) → manually aged one website's scans 10 days back → reran → exactly that website dispatched, others untouched → reset via `migrate:fresh --seed`.
+
+### 2026-07-22 (Phase 8 react shell)
+- `src/api/client.js` — axios instance, `baseURL: '/api'`, `Accept: application/json` (Vite dev proxy already forwards `/api` to `artisan serve` per `vite.config.js`).
+- `Sidebar` (nav links, `NavLink` active-state styling), `TopNavigation` (static header), `StatusBadge` (color-coded by scan status `pending`/`running`/`completed`/`failed` and enabled/disabled).
+- `AppLayout` — `TopNavigation` + `Sidebar` + `<Outlet/>`, routing via `createBrowserRouter`: `/` → Dashboard, `/websites` → Websites, `/websites/:websiteId` → WebsiteDetails, `/pages/:pageId` → PageDetails. All four pages are placeholder stubs — real UI comes in Phases 9–11.
+- Verified in a real browser (this sandbox has `google-chrome` but no display, so used `--headless=new --dump-dom`, not just `npm run build`/curl): loaded `/` and `/websites` on the Vite dev server, confirmed the Sidebar nav renders and each route's placeholder heading actually shows up, not just that the SPA shell returns 200.

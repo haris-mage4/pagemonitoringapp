@@ -22,13 +22,6 @@ class DispatchScheduledScansCommand extends Command
      */
     protected $description = 'Dispatch a scan for every enabled website whose schedule interval has elapsed';
 
-    private const INTERVALS = [
-        'hourly' => 60,
-        'every_6_hours' => 60 * 6,
-        'daily' => 60 * 24,
-        'weekly' => 60 * 24 * 7,
-    ];
-
     public function handle(): int
     {
         Website::query()
@@ -45,7 +38,7 @@ class DispatchScheduledScansCommand extends Command
 
     private function isDue(Website $website): bool
     {
-        $intervalMinutes = self::INTERVALS[$website->schedule] ?? null;
+        $intervalMinutes = Website::SCHEDULE_INTERVAL_MINUTES[$website->schedule] ?? null;
 
         if ($intervalMinutes === null) {
             $this->warn("Website #{$website->id} has unknown schedule '{$website->schedule}', skipping.");

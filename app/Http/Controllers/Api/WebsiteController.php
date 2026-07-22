@@ -26,7 +26,7 @@ class WebsiteController extends Controller
 
     public function show(Website $website): JsonResponse
     {
-        return response()->json($this->websites->find($website));
+        return response()->json($this->websites->details($website));
     }
 
     public function update(UpdateWebsiteRequest $request, Website $website): JsonResponse

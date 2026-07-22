@@ -4,13 +4,13 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 9 — Dashboard UI** — done, uncommitted on branch.
-**Branch: `phase-9-dashboard-ui`.**
-**Phases 0–8 merged to `master` (committed).**
+**Phase: 10 — Website Details UI** — done, uncommitted on branch.
+**Branch: `phase-10-website-details`.**
+**Phases 0–9 merged to `master` (committed).**
 
 ## Next Step
 
-Review diff, commit/merge, start Phase 10 — Website Details UI on branch `phase-10-website-details`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod. Custom date-range picker for trend charts is still unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons) — needed to fully satisfy CLAUDE.md's "every chart supports a custom range" requirement.
+Review diff, commit/merge, start Phase 11 — Page Details UI on branch `phase-11-page-details`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod. Custom date-range picker for trend charts is still unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons) — needed to fully satisfy CLAUDE.md's "every chart supports a custom range" requirement.
 
 ## Log
 
@@ -93,3 +93,10 @@ Verified against real MariaDB + database queue: dispatched ScanWebsiteJob for a 
 - `Dashboard` page fetches `/dashboard/summary` once on mount, and independently fetches `/dashboard/trend/{metric}` for all four metrics (performance/lcp/cls/tbt) whenever that metric's own range selector changes — each chart has its own range state, not a single shared one, so a user can compare e.g. performance-7d against lcp-24h side by side.
 - **Gap vs CLAUDE.md:** charts only expose the 24h/7d/30d quick buttons, no custom date-range picker UI yet, even though `MetricsService::trend()` (Phase 7) already supports `range=custom&from=&to=`. Flagged in Next Step — needed before this fully satisfies "every chart supports Last 24h/7d/30d/Custom range."
 - Verified against the real backend in an actual rendered browser (not just build output): ran `artisan serve` + `vite` dev server together, pointed the frontend at the running API, and took a real headless-Chrome screenshot (`--virtual-time-budget` to let the async fetches resolve before capture — an immediate `--screenshot` without it caught the page mid-loading-state and would've been a false pass). Confirmed real seeded numbers in the metric cards (3 websites, real last-scan timestamp, 0 failed, 39.6 avg performance), populated axes on all 4 charts, and a real recent-activity list with website names/URLs/triggers/status badges.
+
+### 2026-07-22 (Phase 10 website details)
+- Extracted the `schedule` → interval-minutes map (`hourly`/`every_6_hours`/`daily`/`weekly`) out of `DispatchScheduledScansCommand` into `Website::SCHEDULE_INTERVAL_MINUTES` — both the scheduler command and the new details endpoint need it, avoided duplicating the map.
+- `WebsiteService::details(Website)` replaces the old `find()` (deleted, had no other callers) as what `WebsiteController::show()` returns — now the single `GET /api/websites/{website}` response carries everything the Website Details page needs: `website`, `pages` (each with its own `latest_scan.scan_result` eager-loaded per page, N+1 query per page — acceptable at MVP page-counts, revisit if a website ever has dozens of pages), `latest_scan` across the whole website, `current_score`/`previous_score` (last two `scan_results.performance` values by `scans.created_at`), `performance_history` (full ordered series), `next_scheduled_scan` (`null` if disabled or unknown schedule, `now()` if never scanned, else last-scanned + interval — same logic as the scheduler command, now backed by the shared constant).
+- Frontend: `WebsiteTable` (list page, links into details), `WebsiteCard` (name/environment/enabled + current vs previous score with a colored delta + next-scheduled-scan), reused `TrendChart` for the performance-history chart by making its range-button row conditional (`onRangeChange` optional) instead of writing a second chart component — history has no independent range control, so just don't render the buttons.
+- `Websites.jsx` and `WebsiteDetails.jsx` wired to `GET /websites` and `GET /websites/{id}` respectively.
+- Verified against real MariaDB, in a real headless-Chrome screenshot (not just build/curl): confirmed the current/previous score delta (`24` vs `79` → `-55`, colored red), `next_scheduled_scan` matching the `every_6_hours` math (last scan 22:43 + 6h = 04:43 next day), and the pages list showing each page's own latest score/status — all real seeded values, not placeholders. Caught and fixed one cosmetic bug: `schedule.replace('_', ' ')` only replaced the first underscore ("Every 6_hours") — switched to `replaceAll`.

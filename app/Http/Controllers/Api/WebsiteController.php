@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWebsiteRequest;
 use App\Http\Requests\UpdateWebsiteRequest;
+use App\Jobs\ScanWebsiteJob;
 use App\Models\Website;
 use App\Services\WebsiteService;
 use Illuminate\Http\JsonResponse;
@@ -48,5 +49,12 @@ class WebsiteController extends Controller
         return response()->json(
             $this->websites->setEnabled($website, $request->boolean('enabled'))
         );
+    }
+
+    public function scan(Website $website): JsonResponse
+    {
+        ScanWebsiteJob::dispatch($website, 'manual');
+
+        return response()->json(['status' => 'accepted'], 202);
     }
 }

@@ -4,13 +4,13 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 11 — Page Details UI** — done, uncommitted on branch.
-**Branch: `phase-11-page-details`.**
-**Phases 0–10 merged to `master` (committed).**
+**Phase: 12 — Manual Scan Trigger + Polish** — done, uncommitted on branch.
+**Branch: `phase-12-manual-trigger-polish`.**
+**Phases 0–11 merged to `master` (committed).**
 
 ## Next Step
 
-Review diff, commit/merge, start Phase 12 — Manual Scan Trigger + Polish on branch `phase-12-manual-trigger-polish`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod. Custom date-range picker for trend charts is still unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons) — needed to fully satisfy CLAUDE.md's "every chart supports a custom range" requirement.
+Review diff, commit/merge, start Phase 13 — Tests on branch `phase-13-tests`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod. Custom date-range picker for trend charts is still unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons) — needed to fully satisfy CLAUDE.md's "every chart supports a custom range" requirement. No Pest tests exist yet for any of the Services/Jobs built across Phases 2–12 — that's the whole point of Phase 13.
 
 ## Log
 
@@ -106,3 +106,9 @@ Verified against real MariaDB + database queue: dispatched ScanWebsiteJob for a 
 - Frontend: `ScanHistoryTable` (finished time, trigger, status, performance/LCP/CLS/TBT columns), `RawReportViewer` (collapsed by default — a full Lighthouse JSON dump is large, no reason to render it unless asked for), reused `MetricCard` for the four latest-metric tiles and `TrendChart` (no range buttons, same pattern as Phase 10's performance history) for the trend.
 - `PageDetails.jsx` wired to `GET /pages/{id}`, includes a back-link to the parent website.
 - Verified against real MariaDB in a real headless-Chrome screenshot: latest metrics (78/2672/0.054/112), scan history row, and raw-report toggle all showing real seeded data, not placeholders.
+
+### 2026-07-22 (Phase 12 manual trigger + polish)
+- `POST /api/websites/{website}/scan` → `WebsiteController::scan()` dispatches `ScanWebsiteJob` (trigger `manual`) immediately, no delay — this is the "Trigger scans manually" success criterion from CLAUDE.md. Verified against real MariaDB + queue: curl'd it directly, confirmed exactly one job landed in the `jobs` table, cleared it after.
+- Frontend: `WebsiteCard` gets a "Scan Now" button (only rendered when an `onScan` prop is passed, so the component still works standalone elsewhere) — disables itself and shows "Scanning…" while the request is in flight, then a small inline message ("Scan queued."/"Failed to queue scan.") next to it. Wired in `WebsiteDetails.jsx`.
+- Loading/error polish across all four data-fetching pages (`Dashboard`, `Websites`, `WebsiteDetails`, `PageDetails`): each now distinguishes "still loading" (`null` state) from "fetch failed" (a caught `.catch()` sets a message, rendered instead of a blank/broken page) from "loaded". Previously a failed fetch just left the page silently stuck showing `—`/nothing, with no indication anything had gone wrong.
+- **Verification gap:** the "Scan Now" click itself wasn't exercised through a real browser click — this sandbox has no Puppeteer/CDP client available, only static `--headless=new --screenshot`/`--dump-dom`, neither of which can dispatch a click event. Confirmed instead by (a) curling the endpoint directly and checking the `jobs` table, and (b) a screenshot confirming the button renders in the right place with the right label. The `onClick` handler itself is a two-line `apiClient.post` + state update — low complexity, but flagging that the full user-click path is unverified.

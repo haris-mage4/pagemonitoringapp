@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import apiClient from '../api/client'
 import WebsiteCard from '../components/WebsiteCard'
@@ -8,10 +8,35 @@ import StatusBadge from '../components/StatusBadge'
 function WebsiteDetails() {
   const { websiteId } = useParams()
   const [details, setDetails] = useState(null)
+  const [error, setError] = useState(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanMessage, setScanMessage] = useState(null)
+
+  const load = useCallback(() => {
+    setError(null)
+    apiClient
+      .get(`/websites/${websiteId}`)
+      .then((res) => setDetails(res.data))
+      .catch(() => setError('Could not load this website.'))
+  }, [websiteId])
 
   useEffect(() => {
-    apiClient.get(`/websites/${websiteId}`).then((res) => setDetails(res.data))
-  }, [websiteId])
+    load()
+  }, [load])
+
+  const handleScan = () => {
+    setScanning(true)
+    setScanMessage(null)
+    apiClient
+      .post(`/websites/${websiteId}/scan`)
+      .then(() => setScanMessage('Scan queued.'))
+      .catch(() => setScanMessage('Failed to queue scan.'))
+      .finally(() => setScanning(false))
+  }
+
+  if (error) {
+    return <p className="text-sm text-red-600">{error}</p>
+  }
 
   if (!details) {
     return <p className="text-sm text-gray-400">Loading…</p>
@@ -30,6 +55,9 @@ function WebsiteDetails() {
         currentScore={currentScore}
         previousScore={previousScore}
         nextScheduledScan={nextScheduledScan}
+        onScan={handleScan}
+        scanning={scanning}
+        scanMessage={scanMessage}
       />
 
       <TrendChart title="Performance History" data={chartData} />

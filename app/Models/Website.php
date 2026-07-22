@@ -11,6 +11,13 @@ class Website extends Model
     /** @use HasFactory<\Database\Factories\WebsiteFactory> */
     use HasFactory;
 
+    public const SCHEDULE_INTERVAL_MINUTES = [
+        'hourly' => 60,
+        'every_6_hours' => 60 * 6,
+        'daily' => 60 * 24,
+        'weekly' => 60 * 24 * 7,
+    ];
+
     protected $fillable = [
         'name',
         'base_url',

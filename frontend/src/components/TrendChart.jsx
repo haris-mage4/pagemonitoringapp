@@ -16,20 +16,22 @@ function TrendChart({ title, data, range, onRangeChange }) {
     <div className="rounded-lg border border-gray-200 bg-white p-4">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-900">{title}</h3>
-        <div className="flex gap-1">
-          {RANGES.map((r) => (
-            <button
-              key={r.value}
-              type="button"
-              onClick={() => onRangeChange(r.value)}
-              className={`rounded px-2 py-0.5 text-xs font-medium ${
-                range === r.value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        {onRangeChange && (
+          <div className="flex gap-1">
+            {RANGES.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => onRangeChange(r.value)}
+                className={`rounded px-2 py-0.5 text-xs font-medium ${
+                  range === r.value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="h-48">
         {data.length === 0 ? (

@@ -4,13 +4,13 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 4 — Queue Jobs** — done, uncommitted on branch.
-**Branch: `phase-4-queue-jobs`.**
-**Phases 0–3 merged to `master` (committed).**
+**Phase: 3 — Lighthouse Scanner** — done, uncommitted on branch.
+**Branch: `phase-3-scanner`, stacked on uncommitted `phase-2-core-services`.**
+**Phases 0 and 1 merged to `master` (committed). Phase 2 done but not yet committed.**
 
 ## Next Step
 
-Review diff, commit/merge, start Phase 5 — Scheduler on branch `phase-5-scheduler`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod.
+Review/commit Phase 2 and Phase 3 diffs, start Phase 4 — Queue Jobs on branch `phase-4-queue-jobs`. Real Lighthouse CLI + Chromium aren't installed in this sandbox — only `google-chrome` binary is present, no `lighthouse`. LighthouseService was smoke-tested with a fake JSON-emitting script standing in for the real CLI (see log below); needs a real run against `lighthouse` + Chromium before trusting it in prod.
 
 ## Log
 
@@ -44,21 +44,15 @@ Review diff, commit/merge, start Phase 5 — Scheduler on branch `phase-5-schedu
 
 ### 2026-07-22 (Phase 2 core services)
 - `WebsiteService`/`PageService`: list/find/create/update/delete/setEnabled. Controllers stay thin — validate via FormRequest, delegate to service, return JSON.
-- `StoreWebsiteRequest`/`UpdateWebsiteRequest`/`StorePageRequest`/`UpdatePageRequest` — `environment` restricted to `production`/`staging` (inferred from CLAUDE.md's "production and staging environments" wording, not spelled out as an enum in the schema section), `schedule`/`page_type` validated against the enums fixed in Phase 1 migrations.
-- Routes: `Route::apiResource('websites', ...)` + `PATCH websites/{website}/enabled`; `Route::apiResource('websites.pages', ...)->shallow()` (so `show`/`update`/`destroy` are just `/pages/{page}`) + `PATCH pages/{page}/enabled`.
-- No auth on these routes — matches CLAUDE.md's current "dashboard/API assumes trusted local network" stance; all FormRequests' `authorize()` returns `true` accordingly.
-- Verified against real MariaDB via `php artisan serve` + curl: `POST /api/websites`, `GET /api/websites` round-tripped correctly.
+- `StoreWebsiteRequest`/`UpdateWebsiteRequest`/`StorePageRequest`/`UpdatePageRequest` — `environment` restricted to `production`/`staging` (not in CLAUDE.md's schema list verbatim, inferred from the "Environment" field description and CLAUDE.md's own "production and staging environments" wording), `schedule`/`page_type`/`status` values validated against the enums already fixed in Phase 1 migrations.
+- Routes: `Route::apiResource('websites', ...)` + `PATCH websites/{website}/enabled`; `Route::apiResource('websites.pages', ...)->shallow()` (so `show`/`update`/`destroy` are just `/pages/{page}`, no need to carry the parent website in the URL) + `PATCH pages/{page}/enabled`.
+- No auth on these routes — matches CLAUDE.md's current "dashboard/API assumes trusted local network" stance; `authorize()` on all FormRequests returns `true` accordingly.
+- Verified against real MariaDB: `php artisan serve`, curl'd `POST /api/websites` and `GET /api/websites` — created row persisted, listing returns it with `pages_count`. Re-ran `migrate:fresh --seed` after to reset seed data.
 
 ### 2026-07-22 (Phase 3 scanner)
-- `LighthouseService::scan()` wraps Laravel's `Process` facade (built on Symfony Process, per CLAUDE.md) — runs `lighthouse <url> --output=json --output-path=stdout --only-categories=performance,accessibility,best-practices,seo --chrome-flags=--headless=new --no-sandbox --chrome-path=...`, mobile only (no `--preset=desktop` — lighthouse defaults to mobile emulation). Timeout from `config('pagespeed.scan_timeout')`.
-- On non-zero exit or unparseable JSON, returns a failure shape with `exit_code`/`error_message` instead of throwing — `ScanService` always writes a `scan_results` row (metric columns null on failure) and marks the scan `failed`, never leaves it `running`. Matches CLAUDE.md's Error Handling section and "website should still be considered scanned."
-- `ScanService::scanPage(Page, string $trigger)` — creates `Scan` (`running`), runs scan, creates `ScanResult` (`device: mobile` always for MVP), updates scan to `completed`/`failed` + `finished_at`.
-- Metric extraction maps `categories.*.score` (0–1 float to 0–100 int) and `audits.*.numericValue` (ms) — `cumulative-layout-shift`, `total-blocking-time`, `speed-index`, `interactive` (TTI), `first-contentful-paint`, `largest-contentful-paint`.
-- **Sandbox has no `lighthouse` CLI installed** (only `google-chrome`). Smoke-tested by pointing `PAGESPEED_LIGHTHOUSE_PATH` at a throwaway shell script emitting canned Lighthouse-shaped JSON — confirmed parsing, DB writes, status transitions, and the failure path. Not yet run against the real `lighthouse` binary + headless Chromium.
-- **Mid-session incident:** all Phase 2 + Phase 3 files (uncommitted) vanished from the working tree — reverted to the Phase 1 commit with a clean `git status`, cause not established (nothing on this side ran a reset/checkout deliberately). Everything above was rebuilt from scratch after discovery. No data was lost from the database side (migrations/seeds are idempotent), only uncommitted source files. Phases 2 and 3 have since been committed to `master`.
-
-### 2026-07-22 (Phase 4 queue jobs)
-- `ScanWebsiteJob(Website $website, string $trigger)` — pulls `enabled` pages, dispatches one `ScanPageJob` per page.
-- `ScanPageJob(Page $page, string $trigger)` — thin, delegates to `ScanService::scanPage()` (from Phase 3). `$timeout` set from `pagespeed.scan_timeout` + 30s buffer for process overhead.
-- Concurrency: `middleware()` returns `WithoutOverlapping` keyed to one of N slots (`lighthouse-scan-slot-{0..N-1}`), N = `pagespeed.concurrent_scans` (default 1). Slot picked by hashing page id + queue job id, so at most N Lighthouse processes run at once without needing a dedicated queue-per-slot setup. Kept intentionally simple — a cache-lock semaphore, not a custom queue driver — since default concurrency is 1 and CLAUDE.md says raising it should stay a config change.
-- Verified against real MariaDB + database queue: dispatched `ScanWebsiteJob` for a seeded website (3 enabled pages) → confirmed 3 `ScanPageJob` rows landed in the `jobs` table → ran `queue:work --once --stop-when-empty` three times (fake Lighthouse stand-in from Phase 3, same caveat about the real CLI not being installed here) → all 3 processed, `scans` table shows 3 new `completed` rows, 0 `failed`, `jobs` table back to empty.
+- `LighthouseService::scan()` wraps Laravel's `Process` facade (built on Symfony Process, per CLAUDE.md) — runs `lighthouse <url> --output=json --output-path=stdout --only-categories=performance,accessibility,best-practices,seo --chrome-flags=--headless=new --no-sandbox --chrome-path=...`, mobile only (no `--preset=desktop` passed — lighthouse defaults to mobile emulation). Timeout from `config('pagespeed.scan_timeout')`.
+- On non-zero exit or unparseable JSON, returns a failure shape with `exit_code`/`error_message` instead of throwing — `ScanService` always writes a `scan_results` row (all metric columns null on failure) and marks the scan `failed`, never leaves it hanging in `running`. Matches CLAUDE.md's Error Handling section and "website should still be considered scanned."
+- `ScanService::scanPage(Page, string $trigger)` — creates the `Scan` row (`running`), runs the scan, creates the `ScanResult` (`device: mobile` always for MVP), updates scan to `completed`/`failed` + `finished_at`.
+- Metric extraction maps Lighthouse's `categories.*.score` (0–1 float to 0–100 int) and `audits.*.numericValue` (ms) to our columns — `cumulative-layout-shift`, `total-blocking-time`, `speed-index`, `interactive` (→ TTI), `first-contentful-paint`, `largest-contentful-paint`.
+- **Sandbox has no `lighthouse` CLI installed** (only `google-chrome`). Smoke-tested by pointing `PAGESPEED_LIGHTHOUSE_PATH` at a throwaway shell script emitting canned Lighthouse-shaped JSON — confirmed parsing, DB writes, status transitions, and the failure path (ran once with a bad path first, got `exit_code: 127` + captured stderr, scan correctly marked `failed`). Not yet run against the real `lighthouse` binary + headless Chromium — do that before considering this phase production-ready.
+- Had to `php artisan config:clear` mid-session — a stale `bootstrap/cache/config.php` from an earlier `config:cache` was shadowing the `PAGESPEED_LIGHTHOUSE_PATH` env override during testing.

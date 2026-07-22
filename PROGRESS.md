@@ -4,15 +4,13 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 3 — Lighthouse Scanner** — done, uncommitted on branch.
-**Branch: `phase-3-scanner`, stacked on uncommitted Phase 2 work (same branch — Phase 2 was never split onto its own branch after a mid-session reset, see log).**
-**Phase 0 and Phase 1 merged to `master` (committed). Phases 2 and 3 done but not yet committed.**
+**Phase: 4 — Queue Jobs** — done, uncommitted on branch.
+**Branch: `phase-4-queue-jobs`.**
+**Phases 0–3 merged to `master` (committed).**
 
 ## Next Step
 
-Review/commit Phase 2 + Phase 3 diffs, start Phase 4 — Queue Jobs on branch `phase-4-queue-jobs`. Real Lighthouse CLI + Chromium aren't installed in this sandbox (only `google-chrome` binary present) — LighthouseService was smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod.
-
-**Important — commit early.** All Phase 2 + Phase 3 work was lost once already mid-session (uncommitted changes got reset back to the Phase 1 commit, cause unclear — possibly an external `git checkout`/IDE action) and had to be rebuilt from scratch. Nothing here is safe until it's committed.
+Review diff, commit/merge, start Phase 5 — Scheduler on branch `phase-5-scheduler`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod.
 
 ## Log
 
@@ -57,4 +55,10 @@ Review/commit Phase 2 + Phase 3 diffs, start Phase 4 — Queue Jobs on branch `p
 - `ScanService::scanPage(Page, string $trigger)` — creates `Scan` (`running`), runs scan, creates `ScanResult` (`device: mobile` always for MVP), updates scan to `completed`/`failed` + `finished_at`.
 - Metric extraction maps `categories.*.score` (0–1 float to 0–100 int) and `audits.*.numericValue` (ms) — `cumulative-layout-shift`, `total-blocking-time`, `speed-index`, `interactive` (TTI), `first-contentful-paint`, `largest-contentful-paint`.
 - **Sandbox has no `lighthouse` CLI installed** (only `google-chrome`). Smoke-tested by pointing `PAGESPEED_LIGHTHOUSE_PATH` at a throwaway shell script emitting canned Lighthouse-shaped JSON — confirmed parsing, DB writes, status transitions, and the failure path. Not yet run against the real `lighthouse` binary + headless Chromium.
-- **Mid-session incident:** all Phase 2 + Phase 3 files (uncommitted) vanished from the working tree — reverted to the Phase 1 commit with a clean `git status`, cause not established (nothing on this side ran a reset/checkout deliberately). Everything above was rebuilt from scratch after discovery. No data was lost from the database side (migrations/seeds are idempotent), only uncommitted source files.
+- **Mid-session incident:** all Phase 2 + Phase 3 files (uncommitted) vanished from the working tree — reverted to the Phase 1 commit with a clean `git status`, cause not established (nothing on this side ran a reset/checkout deliberately). Everything above was rebuilt from scratch after discovery. No data was lost from the database side (migrations/seeds are idempotent), only uncommitted source files. Phases 2 and 3 have since been committed to `master`.
+
+### 2026-07-22 (Phase 4 queue jobs)
+- `ScanWebsiteJob(Website $website, string $trigger)` — pulls `enabled` pages, dispatches one `ScanPageJob` per page.
+- `ScanPageJob(Page $page, string $trigger)` — thin, delegates to `ScanService::scanPage()` (from Phase 3). `$timeout` set from `pagespeed.scan_timeout` + 30s buffer for process overhead.
+- Concurrency: `middleware()` returns `WithoutOverlapping` keyed to one of N slots (`lighthouse-scan-slot-{0..N-1}`), N = `pagespeed.concurrent_scans` (default 1). Slot picked by hashing page id + queue job id, so at most N Lighthouse processes run at once without needing a dedicated queue-per-slot setup. Kept intentionally simple — a cache-lock semaphore, not a custom queue driver — since default concurrency is 1 and CLAUDE.md says raising it should stay a config change.
+- Verified against real MariaDB + database queue: dispatched `ScanWebsiteJob` for a seeded website (3 enabled pages) → confirmed 3 `ScanPageJob` rows landed in the `jobs` table → ran `queue:work --once --stop-when-empty` three times (fake Lighthouse stand-in from Phase 3, same caveat about the real CLI not being installed here) → all 3 processed, `scans` table shows 3 new `completed` rows, 0 `failed`, `jobs` table back to empty.

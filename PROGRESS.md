@@ -4,13 +4,13 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 3 — Lighthouse Scanner** — done, uncommitted on branch.
-**Branch: `phase-3-scanner`, stacked on uncommitted `phase-2-core-services`.**
-**Phases 0 and 1 merged to `master` (committed). Phase 2 done but not yet committed.**
+**Phase: 5 — Scheduler** — done, uncommitted on branch.
+**Branch: `phase-5-scheduler`.**
+**Phases 0–4 merged to `master` (committed).**
 
 ## Next Step
 
-Review/commit Phase 2 and Phase 3 diffs, start Phase 4 — Queue Jobs on branch `phase-4-queue-jobs`. Real Lighthouse CLI + Chromium aren't installed in this sandbox — only `google-chrome` binary is present, no `lighthouse`. LighthouseService was smoke-tested with a fake JSON-emitting script standing in for the real CLI (see log below); needs a real run against `lighthouse` + Chromium before trusting it in prod.
+Review diff, commit/merge, start Phase 6 — Webhook Trigger on branch `phase-6-webhook`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod.
 
 ## Log
 
@@ -61,4 +61,10 @@ Review/commit Phase 2 and Phase 3 diffs, start Phase 4 — Queue Jobs on branch 
 ScanWebsiteJob(Website $website, string $trigger) — pulls enabled pages, dispatches one ScanPageJob per page.
 ScanPageJob(Page $page, string $trigger) — thin, delegates to ScanService::scanPage() (from Phase 3). $timeout set from pagespeed.scan_timeout + 30s buffer for process overhead.
 Concurrency: middleware() returns WithoutOverlapping keyed to one of N slots (lighthouse-scan-slot-{0..N-1}), N = pagespeed.concurrent_scans (default 1). Slot picked by hashing page id + queue job id, so at most N Lighthouse processes run at once without needing a dedicated queue-per-slot setup. Kept intentionally simple — a cache-lock semaphore, not a custom queue driver — since default concurrency is 1 and CLAUDE.md says raising it should stay a config change.
-Verified against real MariaDB + database queue: dispatched ScanWebsiteJob for a seeded website (3 enabled pages) → confirmed 3 ScanPageJob rows landed in the jobs table → ran queue:work --once --stop-when-empty three times (fake Lighthouse stand-in from Phase 3, same caveat about the real CLI not being installed here) → all 3 processed, scans table shows 3 new completed rows, 0 failed, jobs table back to empty.   
+Verified against real MariaDB + database queue: dispatched ScanWebsiteJob for a seeded website (3 enabled pages) → confirmed 3 ScanPageJob rows landed in the jobs table → ran queue:work --once --stop-when-empty three times (fake Lighthouse stand-in from Phase 3, same caveat about the real CLI not being installed here) → all 3 processed, scans table shows 3 new completed rows, 0 failed, jobs table back to empty.
+
+### 2026-07-22 (Phase 5 scheduler)
+- `pagespeed:dispatch-scheduled-scans` artisan command — for each enabled `Website`, works out if it's "due" by comparing `now()` against the most recent `scans.created_at` across all its pages, against a fixed interval map (`hourly`=60min, `every_6_hours`=360min, `daily`=1440min, `weekly`=10080min). Never-scanned websites are always due. Dispatches `ScanWebsiteJob` (trigger `schedule`) when due.
+- Registered in `routes/console.php` via `Schedule::command(...)->everyMinute()->withoutOverlapping()` (Laravel 12's routes/console.php scheduling, no `Kernel.php` — command polls every minute and only actually dispatches for websites whose interval elapsed, rather than trying to register a distinct cron expression per website's `schedule` value at boot).
+- **Bug caught during smoke testing:** `now()->diffInMinutes($lastScannedAt)` returned a *negative* number — this Carbon version stopped defaulting to absolute-value diffs. Wrapped in `abs()`. Confirms why "verify against real DB, don't trust syntax-only checks" matters — this would've silently made every website perpetually "not due."
+- Verified against real MariaDB: ran the command with fresh seed data (nothing due, 0 jobs queued — correct, seeder scans are recent) → manually aged one website's scans 10 days back → reran → exactly that website dispatched, others untouched → reset via `migrate:fresh --seed`.

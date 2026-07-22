@@ -4,13 +4,13 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 6 — Webhook Trigger** — done, uncommitted on branch.
-**Branch: `phase-6-webhook`.**
-**Phases 0–5 merged to `master` (committed).**
+**Phase: 7 — Dashboard API** — done, uncommitted on branch.
+**Branch: `phase-7-dashboard-api`.**
+**Phases 0–6 merged to `master` (committed).**
 
 ## Next Step
 
-Review diff, commit/merge, start Phase 7 — Dashboard API on branch `phase-7-dashboard-api`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod.
+Review diff, commit/merge, start Phase 8 — React App Shell on branch `phase-8-react-shell`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod.
 
 ## Log
 
@@ -69,6 +69,12 @@ Verified against real MariaDB + database queue: dispatched ScanWebsiteJob for a 
 - `WebhookService::handleDeployment(Website)` — dispatches `ScanWebsiteJob` (trigger `webhook`) delayed by `pagespeed.webhook_delay` seconds (default 600 = 10 min).
 - Set a local `PAGESPEED_WEBHOOK_SECRET` in `.env` (gitignored) for testing — was empty by default.
 - Verified against real MariaDB + queue: unsigned request → 401; correctly HMAC-signed request → 202, and confirmed the queued job's `available_at` in the `jobs` table landed ~600s in the future, not immediate. Cleared the test job after (`queue:clear`).
+
+### 2026-07-22 (Phase 7 dashboard API)
+- `MetricsService::dashboardSummary()` — total websites, last scan (with page/website/scanResult eager-loaded), failed scan count, average performance (avg of `scan_results.performance` across all rows — no "latest per page" windowing yet, simplest thing that satisfies the current spec), 10 most recent scans as "recent activity."
+- `MetricsService::trend(metric, range, from?, to?)` — `metric` restricted to `performance`/`lcp`/`cls`/`tbt`; `range` to `24h`/`7d`/`30d`/`custom` (custom requires explicit `from`/`to`). Joins `scan_results` to `scans` on `created_at`, returns `[{scanned_at, value}, ...]` ordered chronologically — shape chosen to drop straight into a Recharts `<LineChart>` in Phase 9 without transformation.
+- `GET /api/dashboard/summary`, `GET /api/dashboard/trend/{metric}` (route-constrained via `whereIn` to the 4 valid metrics → unknown metric is a clean 404 rather than reaching the service). `TrendRequest` validates `range`/`from`/`to`.
+- Verified against real MariaDB: `GET /summary` returns real seeded counts/last-scan; `GET /trend/performance?range=7d` returns the seeded scan_result values; `GET /trend/bogus?range=7d` → 404 (route constraint); `GET /trend/lcp?range=custom` with no dates + `Accept: application/json` → 422 with field-level errors (first attempt without the `Accept` header got a 302 redirect instead — reminder that FormRequest validation only returns JSON when the client asks for it).
 
 ### 2026-07-22 (Phase 5 scheduler)
 - `pagespeed:dispatch-scheduled-scans` artisan command — for each enabled `Website`, works out if it's "due" by comparing `now()` against the most recent `scans.created_at` across all its pages, against a fixed interval map (`hourly`=60min, `every_6_hours`=360min, `daily`=1440min, `weekly`=10080min). Never-scanned websites are always due. Dispatches `ScanWebsiteJob` (trigger `schedule`) when due.

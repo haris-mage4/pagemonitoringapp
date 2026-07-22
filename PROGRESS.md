@@ -4,13 +4,17 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 12 — Manual Scan Trigger + Polish** — done, uncommitted on branch.
-**Branch: `phase-12-manual-trigger-polish`.**
-**Phases 0–11 merged to `master` (committed).**
+**Phase: 13 — Tests** — done, uncommitted on branch.
+**Branch: `phase-13-tests`.**
+**Phases 0–12 merged to `master` (committed). This closes out the phased plan in `DEVELOPMENT_PLAN.md` — remaining work is the Backlog section + gaps flagged below.**
 
 ## Next Step
 
-Review diff, commit/merge, start Phase 13 — Tests on branch `phase-13-tests`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod. Custom date-range picker for trend charts is still unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons) — needed to fully satisfy CLAUDE.md's "every chart supports a custom range" requirement. No Pest tests exist yet for any of the Services/Jobs built across Phases 2–12 — that's the whole point of Phase 13.
+Review diff, commit/merge. All 14 phases (0–13) are now done. Remaining before calling MVP complete:
+- Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — every scan-related test/manual check so far used a fake JSON-emitting stand-in. Verify against the real `lighthouse` binary + headless Chromium before trusting any of it in prod.
+- Custom date-range picker for trend charts is unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons).
+- Performance regression detection (success criterion #8 in CLAUDE.md) is still an unstarted Future Feature — CLAUDE.md itself flags success criteria and feature list as out of sync on this point.
+- API authentication is still assumed-trusted-network per CLAUDE.md's Future Features list — revisit before any public deployment.
 
 ## Log
 
@@ -112,3 +116,9 @@ Verified against real MariaDB + database queue: dispatched ScanWebsiteJob for a 
 - Frontend: `WebsiteCard` gets a "Scan Now" button (only rendered when an `onScan` prop is passed, so the component still works standalone elsewhere) — disables itself and shows "Scanning…" while the request is in flight, then a small inline message ("Scan queued."/"Failed to queue scan.") next to it. Wired in `WebsiteDetails.jsx`.
 - Loading/error polish across all four data-fetching pages (`Dashboard`, `Websites`, `WebsiteDetails`, `PageDetails`): each now distinguishes "still loading" (`null` state) from "fetch failed" (a caught `.catch()` sets a message, rendered instead of a blank/broken page) from "loaded". Previously a failed fetch just left the page silently stuck showing `—`/nothing, with no indication anything had gone wrong.
 - **Verification gap:** the "Scan Now" click itself wasn't exercised through a real browser click — this sandbox has no Puppeteer/CDP client available, only static `--headless=new --screenshot`/`--dump-dom`, neither of which can dispatch a click event. Confirmed instead by (a) curling the endpoint directly and checking the `jobs` table, and (b) a screenshot confirming the button renders in the right place with the right label. The `onClick` handler itself is a two-line `apiClient.post` + state update — low complexity, but flagging that the full user-click path is unverified.
+
+### 2026-07-22 (Phase 13 tests)
+- **Test DB switched from sqlite to real MariaDB.** `phpunit.xml` had `DB_CONNECTION=sqlite`/`DB_DATABASE=:memory:` since Phase 0, but this sandbox's PHP has no `pdo_sqlite` extension (only `pdo_mysql`) — every phase so far worked around this by testing manually against the dev DB instead of via `./vendor/bin/pest`. Created a dedicated `pagespeed_monitor_test` database and pointed `phpunit.xml` at `DB_CONNECTION=mysql`/`DB_DATABASE=pagespeed_monitor_test` (host/user/password still come from `.env`). `tests/Pest.php` now applies `RefreshDatabase` to the `Feature` suite. Confirmed test runs don't touch the dev DB: `pagespeed_monitor.websites` still has its 3 seeded rows, `pagespeed_monitor_test.websites` is empty (transactions roll back after each test).
+- 26 Pest tests across `tests/Feature/Services/` (WebsiteService, PageService, ScanService, LighthouseService, WebhookService, MetricsService) and `tests/Feature/Jobs/` (ScanWebsiteJob, ScanPageJob) — all passing.
+- `LighthouseServiceTest` uses `Process::fake()` (success/non-zero-exit/invalid-JSON cases) instead of touching a real binary. `ScanServiceTest` mocks `LighthouseService` to test the completed/failed status-transition logic in isolation. `WebhookServiceTest` uses `Bus::fake()` to assert `ScanWebsiteJob` is dispatched with a delay rather than actually waiting on one. `ScanWebsiteJobTest` confirms disabled pages are excluded from the fan-out. `ScanPageJobTest` covers both the `handle()` delegation and that `middleware()` returns exactly one `WithoutOverlapping` lock at the default `concurrent_scans=1`.
+- Left the pre-existing `tests/Unit/ExampleTest.php` and `tests/Feature/ExampleTest.php` in place — both still pass and cost nothing to keep.

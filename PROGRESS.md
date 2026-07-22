@@ -4,13 +4,13 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Current Status
 
-**Phase: 8 — React App Shell** — done, uncommitted on branch.
-**Branch: `phase-8-react-shell`.**
-**Phases 0–7 merged to `master` (committed).**
+**Phase: 9 — Dashboard UI** — done, uncommitted on branch.
+**Branch: `phase-9-dashboard-ui`.**
+**Phases 0–8 merged to `master` (committed).**
 
 ## Next Step
 
-Review diff, commit/merge, start Phase 9 — Dashboard UI on branch `phase-9-dashboard-ui`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod.
+Review diff, commit/merge, start Phase 10 — Website Details UI on branch `phase-10-website-details`. Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — scanning has only been smoke-tested against a fake JSON-emitting stand-in script, not the real CLI. Verify against real `lighthouse` + headless Chromium before trusting it in prod. Custom date-range picker for trend charts is still unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons) — needed to fully satisfy CLAUDE.md's "every chart supports a custom range" requirement.
 
 ## Log
 
@@ -87,3 +87,9 @@ Verified against real MariaDB + database queue: dispatched ScanWebsiteJob for a 
 - `Sidebar` (nav links, `NavLink` active-state styling), `TopNavigation` (static header), `StatusBadge` (color-coded by scan status `pending`/`running`/`completed`/`failed` and enabled/disabled).
 - `AppLayout` — `TopNavigation` + `Sidebar` + `<Outlet/>`, routing via `createBrowserRouter`: `/` → Dashboard, `/websites` → Websites, `/websites/:websiteId` → WebsiteDetails, `/pages/:pageId` → PageDetails. All four pages are placeholder stubs — real UI comes in Phases 9–11.
 - Verified in a real browser (this sandbox has `google-chrome` but no display, so used `--headless=new --dump-dom`, not just `npm run build`/curl): loaded `/` and `/websites` on the Vite dev server, confirmed the Sidebar nav renders and each route's placeholder heading actually shows up, not just that the SPA shell returns 200.
+
+### 2026-07-22 (Phase 9 dashboard UI)
+- `MetricCard` (label + value), `TrendChart` (Recharts `LineChart`, quick-range buttons 24h/7d/30d wired to `onRangeChange`), `RecentActivity` (list using the existing `StatusBadge`).
+- `Dashboard` page fetches `/dashboard/summary` once on mount, and independently fetches `/dashboard/trend/{metric}` for all four metrics (performance/lcp/cls/tbt) whenever that metric's own range selector changes — each chart has its own range state, not a single shared one, so a user can compare e.g. performance-7d against lcp-24h side by side.
+- **Gap vs CLAUDE.md:** charts only expose the 24h/7d/30d quick buttons, no custom date-range picker UI yet, even though `MetricsService::trend()` (Phase 7) already supports `range=custom&from=&to=`. Flagged in Next Step — needed before this fully satisfies "every chart supports Last 24h/7d/30d/Custom range."
+- Verified against the real backend in an actual rendered browser (not just build output): ran `artisan serve` + `vite` dev server together, pointed the frontend at the running API, and took a real headless-Chrome screenshot (`--virtual-time-budget` to let the async fetches resolve before capture — an immediate `--screenshot` without it caught the page mid-loading-state and would've been a false pass). Confirmed real seeded numbers in the metric cards (3 websites, real last-scan timestamp, 0 failed, 39.6 avg performance), populated axes on all 4 charts, and a real recent-activity list with website names/URLs/triggers/status badges.

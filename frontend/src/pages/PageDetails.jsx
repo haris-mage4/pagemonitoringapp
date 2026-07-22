@@ -10,10 +10,19 @@ import StatusBadge from '../components/StatusBadge'
 function PageDetails() {
   const { pageId } = useParams()
   const [details, setDetails] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    apiClient.get(`/pages/${pageId}`).then((res) => setDetails(res.data))
+    setError(null)
+    apiClient
+      .get(`/pages/${pageId}`)
+      .then((res) => setDetails(res.data))
+      .catch(() => setError('Could not load this page.'))
   }, [pageId])
+
+  if (error) {
+    return <p className="text-sm text-red-600">{error}</p>
+  }
 
   if (!details) {
     return <p className="text-sm text-gray-400">Loading…</p>

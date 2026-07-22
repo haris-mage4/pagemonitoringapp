@@ -13,6 +13,7 @@ Route::get('/ping', function () {
 
 Route::apiResource('websites', WebsiteController::class);
 Route::patch('websites/{website}/enabled', [WebsiteController::class, 'setEnabled']);
+Route::post('websites/{website}/scan', [WebsiteController::class, 'scan']);
 
 Route::apiResource('websites.pages', PageController::class)->shallow();
 Route::patch('pages/{page}/enabled', [PageController::class, 'setEnabled']);

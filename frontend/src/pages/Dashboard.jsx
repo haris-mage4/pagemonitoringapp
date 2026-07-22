@@ -13,11 +13,15 @@ const TREND_METRICS = [
 
 function Dashboard() {
   const [summary, setSummary] = useState(null)
+  const [error, setError] = useState(null)
   const [ranges, setRanges] = useState({ performance: '7d', lcp: '7d', cls: '7d', tbt: '7d' })
   const [trends, setTrends] = useState({ performance: [], lcp: [], cls: [], tbt: [] })
 
   useEffect(() => {
-    apiClient.get('/dashboard/summary').then((res) => setSummary(res.data))
+    apiClient
+      .get('/dashboard/summary')
+      .then((res) => setSummary(res.data))
+      .catch(() => setError('Could not load dashboard data.'))
   }, [])
 
   const fetchTrend = useCallback((metric, range) => {
@@ -31,6 +35,14 @@ function Dashboard() {
   }, [ranges, fetchTrend])
 
   const setRange = (metric, range) => setRanges((prev) => ({ ...prev, [metric]: range }))
+
+  if (error) {
+    return <p className="text-sm text-red-600">{error}</p>
+  }
+
+  if (!summary) {
+    return <p className="text-sm text-gray-400">Loading…</p>
+  }
 
   return (
     <div className="space-y-6">

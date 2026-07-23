@@ -15,28 +15,34 @@ class WebsiteController extends Controller
 {
     public function __construct(private readonly WebsiteService $websites) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json($this->websites->list());
+        return response()->json($this->websites->list($request->user()->id));
     }
 
     public function store(StoreWebsiteRequest $request): JsonResponse
     {
-        return response()->json($this->websites->create($request->validated()), 201);
+        return response()->json($this->websites->create($request->user()->id, $request->validated()), 201);
     }
 
     public function show(Website $website): JsonResponse
     {
+        $this->authorize('view', $website);
+
         return response()->json($this->websites->details($website));
     }
 
     public function update(UpdateWebsiteRequest $request, Website $website): JsonResponse
     {
+        $this->authorize('update', $website);
+
         return response()->json($this->websites->update($website, $request->validated()));
     }
 
     public function destroy(Website $website): JsonResponse
     {
+        $this->authorize('delete', $website);
+
         $this->websites->delete($website);
 
         return response()->json(null, 204);
@@ -44,6 +50,8 @@ class WebsiteController extends Controller
 
     public function setEnabled(Request $request, Website $website): JsonResponse
     {
+        $this->authorize('update', $website);
+
         $request->validate(['enabled' => ['required', 'boolean']]);
 
         return response()->json(
@@ -53,6 +61,8 @@ class WebsiteController extends Controller
 
     public function scan(Website $website): JsonResponse
     {
+        $this->authorize('update', $website);
+
         ScanWebsiteJob::dispatch($website, 'manual');
 
         return response()->json(['status' => 'accepted'], 202);

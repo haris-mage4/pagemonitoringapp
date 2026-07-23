@@ -10,13 +10,30 @@ Read this first each session. See `DEVELOPMENT_PLAN.md` for phase breakdown, `CL
 
 ## Next Step
 
-Review diff, commit/merge. All 14 phases (0–13) are now done. Remaining before calling MVP complete:
+Review diff, commit/merge. All 14 phases (0–13) are now done — this closed the original PageSpeed spec.
+
+**New extension scope added 2026-07-23:** `EXTENSION_SPEC.md` + `DEVELOPMENT_PLAN.md` Phases 14–19 (auth via Sanctum, uptime monitoring, JS console error capture, email alerts).
+
+**Phase 14 — Auth (Sanctum) — done, uncommitted on branch `phase-14-auth`.** Next: Phase 15 (uptime monitoring).
+
+Remaining from original spec before calling that part complete:
 - Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — every scan-related test/manual check so far used a fake JSON-emitting stand-in. Verify against the real `lighthouse` binary + headless Chromium before trusting any of it in prod.
 - Custom date-range picker for trend charts is unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons).
 - Performance regression detection (success criterion #8 in CLAUDE.md) is still an unstarted Future Feature — CLAUDE.md itself flags success criteria and feature list as out of sync on this point.
 - API authentication is still assumed-trusted-network per CLAUDE.md's Future Features list — revisit before any public deployment.
 
 ## Log
+
+### 2026-07-23 (Phase 14 auth)
+- Installed `laravel/sanctum`, published config/migration (`personal_access_tokens`). Used API token auth (`HasApiTokens`, Bearer token), not SPA cookie — simpler given the Vite dev server / Laravel API split, no shared domain/session assumed.
+- `users` migration was already Laravel's default; no changes needed there.
+- `websites.user_id` FK migration (`cascadeOnDelete`), `Website belongsTo User`, `WebsiteFactory`/`DatabaseSeeder` updated to attach `user_id`.
+- `AuthService` (register/login/logout) + `AuthController` + `PasswordResetController` (wired to Laravel's built-in `Password` broker — `password_reset_tokens` table already existed from Phase 0 scaffold, unused until now). Routes: `POST auth/register`, `auth/login`, `auth/forgot-password`, `auth/reset-password` (public); `auth/logout`, `auth/me` (authenticated).
+- All existing website/page/dashboard routes moved under `auth:sanctum` middleware group. Bitbucket webhook route untouched (stays secret-signed, not user-authenticated — deployments aren't a logged-in user action).
+- Ownership enforcement: `WebsitePolicy`/`PagePolicy`, checked via explicit `$this->authorize()` calls per controller action (not Laravel's `authorizeResource()` — that relies on controller `->middleware()`, which plain controllers no longer support by default in Laravel 12; using it threw `Call to undefined method ...::middleware()` at runtime, caught via live curl testing, not just unit tests). `PagePolicy` checks ownership through `$page->website->user_id` since pages don't carry `user_id` directly.
+- `WebsiteService::list()`/`create()` and `MetricsService::dashboardSummary()`/`trend()` now take a `$userId` and scope their queries — these were a real cross-tenant data leak if left global (dashboard/list would've shown every user's websites). `WebsiteService::details()`/`update()`/`delete()` rely on the controller-level policy check instead (already receive the specific `$website` model via route binding).
+- Updated `WebsiteServiceTest`/`MetricsServiceTest` for the new signatures — all 26 Pest tests pass.
+- Verified against real MariaDB + running `artisan serve`: registered/logged in a real user, confirmed empty website list for a new user (no cross-tenant bleed), created a website (persisted with correct `user_id`), confirmed `GET /websites/{id}` on another user's website returns 403, confirmed unauthenticated requests get 401.
 
 ### 2026-07-22
 - Reviewed and reformatted `CLAUDE.md`. Added Development Workflow section (branch-per-phase, no auto-commit/merge).

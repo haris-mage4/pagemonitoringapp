@@ -20,7 +20,7 @@ test('dashboardSummary aggregates counts and averages', function () {
     $failed = Scan::factory()->for($page)->create(['status' => 'failed', 'finished_at' => now()->subMinute()]);
     ScanResult::factory()->for($failed)->create(['performance' => null]);
 
-    $summary = $this->service->dashboardSummary();
+    $summary = $this->service->dashboardSummary($website->user_id);
 
     expect($summary['total_websites'])->toBe(1)
         ->and($summary['failed_scans'])->toBe(1)
@@ -38,16 +38,20 @@ test('trend returns chronological values within the requested range', function (
     $recent = Scan::factory()->for($page)->create(['created_at' => now()->subHour()]);
     ScanResult::factory()->for($recent)->create(['performance' => 70]);
 
-    $trend = $this->service->trend('performance', '7d');
+    $trend = $this->service->trend($page->website->user_id, 'performance', '7d');
 
     expect($trend)->toHaveCount(1)
         ->and($trend->first()['value'])->toBe(70);
 });
 
 test('trend rejects an unsupported metric', function () {
-    $this->service->trend('bogus', '7d');
+    $website = Website::factory()->create();
+
+    $this->service->trend($website->user_id, 'bogus', '7d');
 })->throws(InvalidArgumentException::class);
 
 test('trend requires from/to for a custom range', function () {
-    $this->service->trend('performance', 'custom');
+    $website = Website::factory()->create();
+
+    $this->service->trend($website->user_id, 'performance', 'custom');
 })->throws(InvalidArgumentException::class);

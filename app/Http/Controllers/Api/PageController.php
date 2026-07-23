@@ -17,26 +17,36 @@ class PageController extends Controller
 
     public function index(Website $website): JsonResponse
     {
+        $this->authorize('view', $website);
+
         return response()->json($this->pages->listForWebsite($website));
     }
 
     public function store(StorePageRequest $request, Website $website): JsonResponse
     {
+        $this->authorize('update', $website);
+
         return response()->json($this->pages->create($website, $request->validated()), 201);
     }
 
     public function show(Page $page): JsonResponse
     {
+        $this->authorize('view', $page);
+
         return response()->json($this->pages->details($page));
     }
 
     public function update(UpdatePageRequest $request, Page $page): JsonResponse
     {
+        $this->authorize('update', $page);
+
         return response()->json($this->pages->update($page, $request->validated()));
     }
 
     public function destroy(Page $page): JsonResponse
     {
+        $this->authorize('delete', $page);
+
         $this->pages->delete($page);
 
         return response()->json(null, 204);
@@ -44,6 +54,8 @@ class PageController extends Controller
 
     public function setEnabled(Request $request, Page $page): JsonResponse
     {
+        $this->authorize('update', $page);
+
         $request->validate(['enabled' => ['required', 'boolean']]);
 
         return response()->json(

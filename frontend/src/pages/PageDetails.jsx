@@ -6,6 +6,7 @@ import TrendChart from '../components/TrendChart'
 import ScanHistoryTable from '../components/ScanHistoryTable'
 import RawReportViewer from '../components/RawReportViewer'
 import StatusBadge from '../components/StatusBadge'
+import PageErrorLog from '../components/PageErrorLog'
 
 function PageDetails() {
   const { pageId } = useParams()
@@ -29,7 +30,7 @@ function PageDetails() {
   }
 
   const { page, latest_scan: latestScan, scan_history: scanHistory,
-    performance_history: performanceHistory, raw_report: rawReport } = details
+    performance_history: performanceHistory, raw_report: rawReport, page_errors: pageErrors } = details
   const latestResult = latestScan?.scan_result
 
   const chartData = performanceHistory.map((row) => ({ scanned_at: row.scanned_at, value: row.performance }))
@@ -66,6 +67,11 @@ function PageDetails() {
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-2 text-sm font-medium text-gray-900">Raw Lighthouse Report</h3>
         <RawReportViewer report={rawReport} />
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <h3 className="mb-2 text-sm font-medium text-gray-900">JS Console Errors</h3>
+        <PageErrorLog errors={pageErrors} />
       </div>
     </div>
   )

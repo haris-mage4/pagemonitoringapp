@@ -15,3 +15,7 @@ Schedule::command('pagespeed:dispatch-scheduled-scans')
 Schedule::command('pagespeed:check-uptime')
     ->cron('*/'.max(1, (int) config('pagespeed.uptime_check_interval')).' * * * *')
     ->withoutOverlapping();
+
+Schedule::command('pagespeed:check-page-errors')
+    ->cron('*/'.max(1, (int) config('pagespeed.page_error_check_interval')).' * * * *')
+    ->withoutOverlapping();

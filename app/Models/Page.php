@@ -35,4 +35,9 @@ class Page extends Model
     {
         return $this->hasMany(Scan::class);
     }
+
+    public function pageErrors(): HasMany
+    {
+        return $this->hasMany(PageError::class);
+    }
 }

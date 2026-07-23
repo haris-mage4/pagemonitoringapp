@@ -52,5 +52,17 @@ test('details includes scan history, performance history, and raw report', funct
     expect($details['scan_history'])->toHaveCount(2)
         ->and($details['performance_history'])->toHaveCount(1)
         ->and($details['latest_scan']->id)->toBe($scan->id)
-        ->and($details['raw_report'])->toBe(['ok' => true]);
+        ->and($details['raw_report'])->toBe(['ok' => true])
+        ->and($details['page_errors'])->toHaveCount(0);
+});
+
+test('details includes page errors newest last_seen_at first', function () {
+    $page = Page::factory()->create();
+
+    $older = \App\Models\PageError::factory()->for($page)->create(['last_seen_at' => now()->subHour()]);
+    $newer = \App\Models\PageError::factory()->for($page)->create(['last_seen_at' => now()]);
+
+    $details = $this->service->details($page);
+
+    expect($details['page_errors']->pluck('id')->all())->toBe([$newer->id, $older->id]);
 });

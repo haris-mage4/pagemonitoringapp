@@ -15,6 +15,8 @@ function WebsiteTable({ websites }) {
           <th className="py-2 font-medium">Schedule</th>
           <th className="py-2 font-medium">Pages</th>
           <th className="py-2 font-medium">Status</th>
+          <th className="py-2 font-medium">Uptime</th>
+          <th className="py-2 font-medium">Response Time</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
@@ -31,6 +33,18 @@ function WebsiteTable({ websites }) {
             <td className="py-2 text-gray-600">{website.pages_count}</td>
             <td className="py-2">
               <StatusBadge status={website.enabled ? 'enabled' : 'disabled'} />
+            </td>
+            <td className="py-2">
+              {website.latest_uptime_check ? (
+                <StatusBadge status={website.latest_uptime_check.status} />
+              ) : (
+                <span className="text-xs text-gray-400">Not checked yet</span>
+              )}
+            </td>
+            <td className="py-2 text-gray-600">
+              {website.latest_uptime_check?.response_time_ms != null
+                ? `${website.latest_uptime_check.response_time_ms} ms`
+                : '—'}
             </td>
           </tr>
         ))}

@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('pagespeed:dispatch-scheduled-scans')
     ->everyMinute()
     ->withoutOverlapping();
+
+Schedule::command('pagespeed:check-uptime')
+    ->cron('*/'.max(1, (int) config('pagespeed.uptime_check_interval')).' * * * *')
+    ->withoutOverlapping();

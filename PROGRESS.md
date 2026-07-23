@@ -16,7 +16,9 @@ Review diff, commit/merge. All 14 phases (0–13) are now done — this closed t
 
 **Phase 14 — Auth (Sanctum) — merged to master.**
 
-**Phase 15 — Uptime Monitoring — done, uncommitted on branch `phase-15-uptime`.** Next: Phase 16 (email notifications on status change).
+**Phase 15 — Uptime Monitoring — merged to master.**
+
+**Phase 16 — Email Notifications (status change) — done, uncommitted on branch `phase-16-email-uptime`.** Next: Phase 17 (JS console error capture — needs a headless-browser spike first).
 
 Remaining from original spec before calling that part complete:
 - Real Lighthouse CLI is now installed in this sandbox and verified working end-to-end (see "Environment setup" section below) — the "only tested against a fake stand-in" gap from earlier sessions is closed.
@@ -52,6 +54,14 @@ Scans, uptime checks — anything going through `ScanWebsiteJob`/`ScanPageJob`/`
 - The Laravel scheduler's cron entry actually installed in the crontab — `* * * * * cd /path-to-app && php artisan schedule:run >> /dev/null 2>&1` — without it, `pagespeed:dispatch-scheduled-scans` and `pagespeed:check-uptime` (registered in `routes/console.php`) never fire on their own; scans/uptime checks would only ever happen via manual trigger.
 
 ## Log
+
+### 2026-07-23 (Phase 16 email notifications on status change)
+- `WebsiteUptimeStatusChanged` notification (`ShouldQueue` — queued mail, not sent inline) — one class covers both directions (down/back up), subject and body branch on `$check->status !== 'online'`.
+- Dedup logic lives in `UptimeService::check()`, not a separate listener: reads the website's previous latest `uptime_checks.status` *before* writing the new row, compares "up" (`online`) vs "not up" (`offline`/`unavailable`) before vs after, and only calls `$website->user->notify(...)` when that up/down-ness actually flips. A change between `offline` and `unavailable` (both "down") does **not** re-notify — matches CLAUDE.md's "only when status changes, not on unchanged state" dedup rule, and avoids spamming on every failed check while a site stays down.
+- First-ever check for a website (no prior `uptime_checks` row) never notifies — nothing to compare against, and alerting on a brand-new site's baseline state would be noise, not a real transition.
+- Recipient is `$website->user` (already `Notifiable` via Sanctum's `HasApiTokens`/base `Authenticatable` setup from Phase 14) — no separate "who to email" config needed, it's just the website's owner.
+- 4 new Pest tests using `Notification::fake()`: no notification on first check, notifies on online→offline, notifies on offline→online, no notification when status is unchanged. 35 total, all passing.
+- Verified against real MariaDB + the `log` mail driver (not mocked): seeded an `offline` baseline row, pointed a website at `https://www.google.com`, ran a real `UptimeService::check()` — confirmed a rendered email actually landed in `storage/logs/laravel.log` with subject `"... is back online"`, addressed to the website owner's real email.
 
 ### 2026-07-23 (Phase 15 uptime monitoring)
 - `uptime_checks` migration (`website_id`, `status` enum `online`/`offline`/`unavailable`, `http_code`, `response_time_ms`, `checked_at`) + `UptimeCheck` model (`belongsTo Website`) + factory. `Website hasMany uptimeChecks` added.

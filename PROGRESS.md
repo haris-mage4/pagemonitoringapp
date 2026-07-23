@@ -22,7 +22,9 @@ Review diff, commit/merge. All 14 phases (0–13) are now done — this closed t
 
 **Phase 17 — JS Console Error Capture — merged to master.**
 
-**Phase 18 — JS Error Notifications + Dashboard UI — done, uncommitted on branch `phase-18-js-error-ui`.** Next: Phase 19 (extension tests — auth flows, dedup logic already covered inline by earlier phases, mostly a coverage-completeness pass).
+**Phase 18 — JS Error Notifications + Dashboard UI — merged to master.**
+
+**Phase 19 — Extension Tests — done, uncommitted on branch `phase-19-extension-tests`.** This closes out `DEVELOPMENT_PLAN.md`'s Extension section (Phases 14–19) — the same "phased plan done, backlog remains" situation as when Phase 13 closed the original spec. See Backlog section below for what's left.
 
 Remaining from original spec before calling that part complete:
 - Real Lighthouse CLI is now installed in this sandbox and verified working end-to-end (see "Environment setup" section below) — the "only tested against a fake stand-in" gap from earlier sessions is closed.
@@ -63,6 +65,15 @@ Scans, uptime checks — anything going through `ScanWebsiteJob`/`ScanPageJob`/`
 `.env` had `PAGESPEED_CHROME_PATH=/usr/bin/chromium-browser`, which doesn't exist on this machine (`/bin/google-chrome` is the real binary, per the Phase-14-era environment note above). Lighthouse's own `chrome-launcher` silently falls back to an installed Chrome when the configured path is bad, so every "verified real" Lighthouse scan this whole extension phase (14–16) was quietly running against a Chrome it found on its own, not the one `config('pagespeed.chrome_path')` actually pointed at — the scans were still real, just not proof the config value itself was correct. Puppeteer (used for JS error capture, Phase 17) has no such fallback and failed loud and immediately, which is how this surfaced. Fixed `.env` to the real path. Worth periodically checking whether other "path" configs have the same silent-fallback problem.
 
 ## Log
+
+### 2026-07-23 (Phase 19 extension tests)
+- Checked what the plan's test list (`UptimeService`, `CheckWebsiteUptimeJob`, dedup logic, `PageErrorService`, notification dedup) actually still needed — all of it was already covered inline as each phase shipped (15–18), not deferred. The one real gap: **zero tests existed for the entire auth surface** — `AuthController` (register/login/logout/me) and `PasswordResetController` had no Feature tests at all despite being live since Phase 14, and the cross-user ownership fix (websites/pages 403 for a non-owner) was only ever verified manually via curl, never locked in with a test.
+- New `tests/Feature/Auth/` directory:
+  - `AuthControllerTest` — register (success, duplicate email, mismatched confirmation), login (success, wrong password, unknown email), `me` (authenticated, rejects unauthenticated), logout.
+  - `WebsiteAuthorizationTest` — unauthenticated rejected, `index` scoped to own websites only, `store` attaches to the authenticated user, and 403 on `show`/`update`/`destroy`/`scan`/pages-of-another-user's-website for a non-owner. This is the test suite that should have existed since Phase 14 — it's what would have caught the ownership logic breaking, rather than relying on manual curl checks each time.
+  - `PasswordResetControllerTest` — `sendResetLink` queues Laravel's built-in `ResetPassword` notification for a known email (422 for unknown), `reset` actually changes the password with a valid token (422 + password unchanged for an invalid one).
+- **Found and worked around a real Laravel-testing gotcha, not a app bug:** a naive "log out, then confirm the same token now gets 401" test — two chained requests in one test method — failed with the token still authenticating even though the `personal_access_tokens` row was confirmed deleted from the DB mid-test. Root cause: Sanctum's guard memoizes the resolved user within the same test process across chained simulated requests (real production requests each boot a fresh app instance, so this never happens for actual users). Rewrote the test to assert the DB-row deletion directly (create two tokens, log out with one, assert the count dropped by exactly one) instead of relying on a second live request to prove revocation — asserts the actual behavior that matters without depending on test-harness request-chaining semantics.
+- 21 new tests, 66 total, all passing.
 
 ### 2026-07-23 (Phase 18 JS error notifications + dashboard UI)
 - `NewPageErrorsDetected` notification (`ShouldQueue`) — one email per `PageErrorService::check()` run that finds new errors, bundling all of them (not one email per error) to avoid a burst of mail if a page throws several errors in one check. Wired directly into `PageErrorService::check()` after the upsert loop, same shape as Phase 16's uptime-status notification: fire only on what's genuinely new, never on a repeat bump.

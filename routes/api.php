@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('websites.pages', PageController::class)->shallow();
     Route::patch('pages/{page}/enabled', [PageController::class, 'setEnabled']);
+    Route::post('pages/{page}/scan', [PageController::class, 'scan']);
 
     Route::get('dashboard/summary', [DashboardController::class, 'summary']);
     Route::get('dashboard/trend/{metric}', [DashboardController::class, 'trend'])

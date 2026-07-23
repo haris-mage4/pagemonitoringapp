@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePageRequest;
 use App\Http\Requests\UpdatePageRequest;
+use App\Jobs\ScanPageJob;
 use App\Models\Page;
 use App\Models\Website;
 use App\Services\PageService;
@@ -61,5 +62,14 @@ class PageController extends Controller
         return response()->json(
             $this->pages->setEnabled($page, $request->boolean('enabled'))
         );
+    }
+
+    public function scan(Page $page): JsonResponse
+    {
+        $this->authorize('update', $page);
+
+        ScanPageJob::dispatch($page, 'manual');
+
+        return response()->json(['status' => 'accepted'], 202);
     }
 }

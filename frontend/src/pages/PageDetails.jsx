@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import apiClient from '../api/client'
 import MetricCard from '../components/MetricCard'
@@ -12,14 +12,30 @@ function PageDetails() {
   const { pageId } = useParams()
   const [details, setDetails] = useState(null)
   const [error, setError] = useState(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanMessage, setScanMessage] = useState(null)
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setError(null)
     apiClient
       .get(`/pages/${pageId}`)
       .then((res) => setDetails(res.data))
       .catch(() => setError('Could not load this page.'))
   }, [pageId])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const handleScan = () => {
+    setScanning(true)
+    setScanMessage(null)
+    apiClient
+      .post(`/pages/${pageId}/scan`)
+      .then(() => setScanMessage('Scan queued.'))
+      .catch(() => setScanMessage('Failed to queue scan.'))
+      .finally(() => setScanning(false))
+  }
 
   if (error) {
     return <p className="text-sm text-red-600">{error}</p>
@@ -46,7 +62,18 @@ function PageDetails() {
             <h2 className="text-lg font-semibold text-gray-900">{page.url}</h2>
             <p className="text-xs capitalize text-gray-400">{page.page_type}</p>
           </div>
-          <StatusBadge status={page.enabled ? 'enabled' : 'disabled'} />
+          <div className="flex items-center gap-3">
+            {scanMessage && <span className="text-xs text-gray-500">{scanMessage}</span>}
+            <button
+              type="button"
+              onClick={handleScan}
+              disabled={scanning}
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {scanning ? 'Scanning…' : 'Scan Now'}
+            </button>
+            <StatusBadge status={page.enabled ? 'enabled' : 'disabled'} />
+          </div>
         </div>
       </div>
 

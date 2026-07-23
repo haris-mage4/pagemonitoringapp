@@ -34,7 +34,7 @@ class WebsiteService
             ->orderBy('scans.created_at')
             ->get(['scans.created_at as scanned_at', 'scan_results.performance as performance']);
 
-        $pages = $website->pages()->get()->map(function ($page) {
+        $pages = $website->pages()->withCount('pageErrors')->get()->map(function ($page) {
             $latestScan = Scan::where('page_id', $page->id)
                 ->with('scanResult')
                 ->latest('finished_at')

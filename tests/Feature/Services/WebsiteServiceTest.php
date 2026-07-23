@@ -83,3 +83,13 @@ test('details returns null next_scheduled_scan when website is disabled', functi
 
     expect($details['next_scheduled_scan'])->toBeNull();
 });
+
+test('details includes each page\'s error count', function () {
+    $website = Website::factory()->create();
+    $page = Page::factory()->for($website)->create();
+    \App\Models\PageError::factory()->for($page)->count(2)->create();
+
+    $details = $this->service->details($website);
+
+    expect($details['pages']->first()->page_errors_count)->toBe(2);
+});

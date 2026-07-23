@@ -5,6 +5,9 @@ const STYLES = {
   failed: 'bg-red-100 text-red-700',
   enabled: 'bg-green-100 text-green-700',
   disabled: 'bg-gray-100 text-gray-700',
+  online: 'bg-green-100 text-green-700',
+  offline: 'bg-red-100 text-red-700',
+  unavailable: 'bg-yellow-100 text-yellow-700',
 }
 
 function StatusBadge({ status }) {

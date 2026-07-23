@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Scan;
 use App\Models\ScanResult;
+use App\Models\UptimeCheck;
 use App\Models\Website;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -12,7 +13,12 @@ class WebsiteService
 {
     public function list(int $userId): Collection
     {
-        return Website::query()->where('user_id', $userId)->withCount('pages')->get();
+        return Website::query()
+            ->where('user_id', $userId)
+            ->withCount('pages')
+            ->with(['uptimeChecks' => fn ($query) => $query->latest('checked_at')->limit(1)])
+            ->get()
+            ->each(fn (Website $website) => $website->setRelation('latestUptimeCheck', $website->uptimeChecks->first()));
     }
 
     /**
@@ -55,6 +61,10 @@ class WebsiteService
             default => Carbon::parse($lastScannedAt)->addMinutes($intervalMinutes),
         };
 
+        $latestUptimeCheck = UptimeCheck::where('website_id', $website->id)
+            ->latest('checked_at')
+            ->first();
+
         return [
             'website' => $website,
             'pages' => $pages,
@@ -63,6 +73,7 @@ class WebsiteService
             'previous_score' => $performanceHistory->slice(-2, 1)->first()?->performance,
             'performance_history' => $performanceHistory->values(),
             'next_scheduled_scan' => $nextScheduledScan,
+            'latest_uptime_check' => $latestUptimeCheck,
         ];
     }
 

@@ -4,6 +4,7 @@ import apiClient from '../api/client'
 import WebsiteCard from '../components/WebsiteCard'
 import TrendChart from '../components/TrendChart'
 import StatusBadge from '../components/StatusBadge'
+import AddPageForm from '../components/AddPageForm'
 
 function WebsiteDetails() {
   const { websiteId } = useParams()
@@ -23,6 +24,10 @@ function WebsiteDetails() {
   useEffect(() => {
     load()
   }, [load])
+
+  const handlePageCreated = (page) => {
+    setDetails((current) => ({ ...current, pages: [...current.pages, page] }))
+  }
 
   const handleScan = () => {
     setScanning(true)
@@ -44,7 +49,7 @@ function WebsiteDetails() {
 
   const { website, pages, latest_scan: latestScan, current_score: currentScore,
     previous_score: previousScore, performance_history: performanceHistory,
-    next_scheduled_scan: nextScheduledScan } = details
+    next_scheduled_scan: nextScheduledScan, latest_uptime_check: latestUptimeCheck } = details
 
   const chartData = performanceHistory.map((row) => ({ scanned_at: row.scanned_at, value: row.performance }))
 
@@ -76,7 +81,21 @@ function WebsiteDetails() {
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <h3 className="mb-2 text-sm font-medium text-gray-900">Uptime</h3>
+        {latestUptimeCheck ? (
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <StatusBadge status={latestUptimeCheck.status} />
+            <span>Checked {new Date(latestUptimeCheck.checked_at).toLocaleString()}</span>
+            <span>{latestUptimeCheck.response_time_ms} ms</span>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">Not checked yet.</p>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-2 text-sm font-medium text-gray-900">Pages</h3>
+        <AddPageForm websiteId={website.id} onCreated={handlePageCreated} />
         {pages.length === 0 ? (
           <p className="text-sm text-gray-400">No pages yet.</p>
         ) : (

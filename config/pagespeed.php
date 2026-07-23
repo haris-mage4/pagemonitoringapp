@@ -40,4 +40,14 @@ return [
 
     'webhook_secret' => env('PAGESPEED_WEBHOOK_SECRET'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Uptime monitoring
+    |--------------------------------------------------------------------------
+    */
+
+    'uptime_check_interval' => env('PAGESPEED_UPTIME_CHECK_INTERVAL', 2),
+
+    'uptime_check_timeout' => env('PAGESPEED_UPTIME_CHECK_TIMEOUT', 10),
+
 ];

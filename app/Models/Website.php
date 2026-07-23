@@ -44,4 +44,9 @@ class Website extends Model
     {
         return $this->hasMany(Page::class);
     }
+
+    public function uptimeChecks(): HasMany
+    {
+        return $this->hasMany(UptimeCheck::class);
+    }
 }

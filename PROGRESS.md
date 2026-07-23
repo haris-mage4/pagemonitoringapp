@@ -14,15 +14,53 @@ Review diff, commit/merge. All 14 phases (0–13) are now done — this closed t
 
 **New extension scope added 2026-07-23:** `EXTENSION_SPEC.md` + `DEVELOPMENT_PLAN.md` Phases 14–19 (auth via Sanctum, uptime monitoring, JS console error capture, email alerts).
 
-**Phase 14 — Auth (Sanctum) — done, uncommitted on branch `phase-14-auth`.** Next: Phase 15 (uptime monitoring).
+**Phase 14 — Auth (Sanctum) — merged to master.**
+
+**Phase 15 — Uptime Monitoring — done, uncommitted on branch `phase-15-uptime`.** Next: Phase 16 (email notifications on status change).
 
 Remaining from original spec before calling that part complete:
-- Real Lighthouse CLI + Chromium still aren't installed in this sandbox (only `google-chrome` binary present) — every scan-related test/manual check so far used a fake JSON-emitting stand-in. Verify against the real `lighthouse` binary + headless Chromium before trusting any of it in prod.
+- Real Lighthouse CLI is now installed in this sandbox and verified working end-to-end (see "Environment setup" section below) — the "only tested against a fake stand-in" gap from earlier sessions is closed.
 - Custom date-range picker for trend charts is unbuilt (API supports `range=custom&from=&to=`, UI only exposes 24h/7d/30d quick buttons).
 - Performance regression detection (success criterion #8 in CLAUDE.md) is still an unstarted Future Feature — CLAUDE.md itself flags success criteria and feature list as out of sync on this point.
 - API authentication is still assumed-trusted-network per CLAUDE.md's Future Features list — revisit before any public deployment.
 
+## Environment setup (not in the repo — do this on any new machine)
+
+Lighthouse scanning needs a working `lighthouse` CLI + a Node version it's compatible with, neither of which ship with the repo (`config/pagespeed.php` only holds paths, per CLAUDE.md's "no hardcoded paths" rule — nothing to commit here).
+
+**This sandbox's setup**, done 2026-07-23, confirmed working end-to-end against a real page:
+1. This machine's system `node` (via `/bin/node`, v24) throws `SyntaxError: Unexpected reserved word` on Lighthouse's ESM `cli/index.js` (top-level `await` under this Lighthouse version doesn't run cleanly on that node build) — needed a specific known-good pair instead.
+2. Installed Node v22.23.1 via nvm (`nvm install v22.23.1`), then `nvm use v22.23.1 && npm install -g lighthouse` (installed `lighthouse@13.4.1`) — real CLI, not a stand-in.
+3. `config/pagespeed.php` → `lighthouse_path` defaults to `/usr/local/bin/lighthouse`, and `Process`/Symfony Process invocations don't inherit this shell's `nvm` PATH — so a plain symlink to the nvm binary re-hit the same system-node problem. Fixed with a wrapper script at `/usr/local/bin/lighthouse` that pins the exact node binary:
+   ```sh
+   #!/bin/sh
+   exec /home/chandresh/.nvm/versions/node/v22.23.1/bin/node /home/chandresh/.nvm/versions/node/v22.23.1/lib/node_modules/lighthouse/cli/index.js "$@"
+   ```
+4. `google-chrome` (`/bin/google-chrome`) was already present, used as-is via `PAGESPEED_CHROME_PATH`.
+5. Verified via the real API → queue path (not a unit test): `POST /api/websites/{id}/scan` → `queue:work` → real Lighthouse run against `https://example.com` → `performance: 100`, `lcp: ~790ms`, `cls: 0`, scan marked `completed`.
+
+**On a different machine**, whoever deploys this needs to redo the equivalent: confirm the target's system `node` actually runs Lighthouse cleanly (test with `lighthouse --version` and a real scan, don't assume) — if it does, a plain global `npm install -g lighthouse` + matching path in `.env` is enough, no wrapper-script workaround needed. Also confirm a Chromium/Chrome binary is present and reachable at whatever `PAGESPEED_CHROME_PATH` is set to.
+
+### Queue worker + scheduler must actually be running
+
+Scans, uptime checks — anything going through `ScanWebsiteJob`/`ScanPageJob`/`CheckWebsiteUptimeJob` — only ever run if something is processing the `jobs` table. Nothing in this repo starts that automatically; a fresh clone or a fresh sandbox session has zero workers running, so jobs queue up and just sit there forever with no error, which reads as "scan triggered but nothing ever happens" / "dashboard has no data" even though everything upstream (API, job dispatch, Lighthouse itself) is working fine. Hit this exact symptom 2026-07-23 — root cause was simply no `queue:work` process alive, not a scanning bug.
+
+**In this sandbox**, started manually for testing: `php artisan queue:work --tries=1` (backgrounded via `nohup ... & disown`) — session-only, dies whenever the sandbox restarts, needs restarting by hand each session.
+
+**In real deployment** this needs to be supervised, not manual:
+- A process manager (Supervisor config or systemd unit) running `php artisan queue:work`, set to auto-restart on crash and on every deploy (`php artisan queue:restart` after deploying new code, since workers cache booted code and won't pick up changes otherwise).
+- The Laravel scheduler's cron entry actually installed in the crontab — `* * * * * cd /path-to-app && php artisan schedule:run >> /dev/null 2>&1` — without it, `pagespeed:dispatch-scheduled-scans` and `pagespeed:check-uptime` (registered in `routes/console.php`) never fire on their own; scans/uptime checks would only ever happen via manual trigger.
+
 ## Log
+
+### 2026-07-23 (Phase 15 uptime monitoring)
+- `uptime_checks` migration (`website_id`, `status` enum `online`/`offline`/`unavailable`, `http_code`, `response_time_ms`, `checked_at`) + `UptimeCheck` model (`belongsTo Website`) + factory. `Website hasMany uptimeChecks` added.
+- `UptimeService::check(Website)` — `Http::timeout(...)->get($website->base_url)`, times the request itself (not relying on the HTTP client's own timing). Status mapping: 2xx → `online`, reachable-but-non-2xx → `unavailable`, connection failure (`ConnectionException`, e.g. DNS/refused/timeout) → `offline`. Always writes an `uptime_checks` row, same "always record, never leave a gap" pattern as scan failure handling from Phase 3.
+- `CheckWebsiteUptimeJob(Website)` — thin, delegates to `UptimeService`. No `WithoutOverlapping` concurrency limiting like the Lighthouse scan jobs — a plain HTTP GET is cheap, doesn't need the same one-at-a-time treatment as spinning up headless Chrome.
+- `pagespeed:check-uptime` artisan command — dispatches one job per enabled website. Scheduled via `Schedule::command(...)->cron('*/N * * * *')` where N comes from `config('pagespeed.uptime_check_interval')` (new config key, default 2 min) — a fixed interval for all websites, unlike the Lighthouse scheduler which has a per-website schedule field to check against.
+- `WebsiteService::list()`/`details()` now include each website's latest `uptime_check` (`latest_uptime_check` in the JSON response). Frontend: `StatusBadge` gained `online`/`offline`/`unavailable` styles, `WebsiteTable` gained Uptime + Response Time columns, `WebsiteDetails` page gained an Uptime card (status/checked-at/response-time).
+- Verified against real MariaDB + queue + a real network call (not mocked): pointed a seeded website's `base_url` at `https://www.google.com` — got back `online`/`200`/real response time (657ms). Pointed it at an unreachable local port — got `offline`/null http_code, confirming the `ConnectionException` path. Ran `pagespeed:check-uptime` for real, confirmed 3 jobs queued (one per seeded website), processed them with `queue:work --once` three times, confirmed 3 `uptime_checks` rows landed and the jobs table drained to empty.
+- 5 new Pest tests (`UptimeServiceTest` — online/unavailable/offline via `Http::fake()`, `CheckWebsiteUptimeJobTest`, `CheckUptimeCommandTest` — disabled websites excluded). 31 total, all passing.
 
 ### 2026-07-23 (Phase 14 auth)
 - Installed `laravel/sanctum`, published config/migration (`personal_access_tokens`). Used API token auth (`HasApiTokens`, Bearer token), not SPA cookie — simpler given the Vite dev server / Laravel API split, no shared domain/session assumed.

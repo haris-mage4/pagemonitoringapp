@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Page;
+use App\Models\PageError;
 use App\Models\Scan;
 use App\Models\Website;
 use Illuminate\Database\Eloquent\Collection;
@@ -44,6 +45,7 @@ class PageService
             'scan_history' => $scanHistory,
             'performance_history' => $performanceHistory,
             'raw_report' => $latestScan?->scanResult?->raw_json,
+            'page_errors' => PageError::where('page_id', $page->id)->latest('last_seen_at')->get(),
         ];
     }
 

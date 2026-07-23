@@ -63,7 +63,7 @@ return [
         base_path('node-scripts/capture-console-errors.js')
     ),
 
-    'js_error_check_timeout' => env('PAGESPEED_JS_ERROR_CHECK_TIMEOUT', 30),
+    'js_error_check_timeout' => env('PAGESPEED_JS_ERROR_CHECK_TIMEOUT', 60),
 
     'page_error_check_interval' => env('PAGESPEED_PAGE_ERROR_CHECK_INTERVAL', 60),
 

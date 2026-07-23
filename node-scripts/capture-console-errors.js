@@ -19,6 +19,7 @@ async function main() {
 
   try {
     const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 800 });
 
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
@@ -39,7 +40,8 @@ async function main() {
       });
     });
 
-    await page.goto(url, { waitUntil: 'networkidle2', timeout });
+    await page.goto(url, { waitUntil: 'load', timeout });
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   } finally {
     await browser.close();
   }

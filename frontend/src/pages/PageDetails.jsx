@@ -56,7 +56,7 @@ function PageDetails() {
         <MetricCard label="TBT (ms)" value={latestResult?.tbt ?? '—'} />
       </div>
 
-      <TrendChart title="Performance Trend" data={chartData} />
+      <TrendChart title="Performance Trend" data={chartData} metric="performance" />
 
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-2 text-sm font-medium text-gray-900">Scan History</h3>

@@ -66,6 +66,7 @@ function Dashboard() {
             data={trends[key]}
             range={ranges[key]}
             onRangeChange={(range) => setRange(key, range)}
+            metric={key}
           />
         ))}
       </div>

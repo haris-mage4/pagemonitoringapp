@@ -65,7 +65,7 @@ function WebsiteDetails() {
         scanMessage={scanMessage}
       />
 
-      <TrendChart title="Performance History" data={chartData} />
+      <TrendChart title="Performance History" data={chartData} metric="performance" />
 
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-2 text-sm font-medium text-gray-900">

@@ -63,6 +63,12 @@ class WebsiteController extends Controller
     {
         $this->authorize('update', $website);
 
+        if (! $website->pages()->where('enabled', true)->exists()) {
+            return response()->json([
+                'message' => 'This website has no enabled pages to scan. Add a page first.',
+            ], 422);
+        }
+
         ScanWebsiteJob::dispatch($website, 'manual');
 
         return response()->json(['status' => 'accepted'], 202);

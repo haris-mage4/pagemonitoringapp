@@ -35,7 +35,7 @@ function WebsiteDetails() {
     apiClient
       .post(`/websites/${websiteId}/scan`)
       .then(() => setScanMessage('Scan queued.'))
-      .catch(() => setScanMessage('Failed to queue scan.'))
+      .catch((err) => setScanMessage(err.response?.data?.message ?? 'Failed to queue scan.'))
       .finally(() => setScanning(false))
   }
 

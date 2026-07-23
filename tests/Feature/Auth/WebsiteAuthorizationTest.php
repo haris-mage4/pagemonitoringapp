@@ -75,6 +75,31 @@ test('scan rejects another user\'s website', function () {
         ->assertStatus(403);
 });
 
+test('scan rejects a website with no enabled pages', function () {
+    $user = User::factory()->create();
+    $website = Website::factory()->for($user)->create();
+    Page::factory()->for($website)->create(['enabled' => false]);
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->postJson("/api/websites/{$website->id}/scan");
+
+    $response->assertStatus(422)->assertJsonPath('message', 'This website has no enabled pages to scan. Add a page first.');
+});
+
+test('scan dispatches for a website with at least one enabled page', function () {
+    \Illuminate\Support\Facades\Bus::fake();
+
+    $user = User::factory()->create();
+    $website = Website::factory()->for($user)->create();
+    Page::factory()->for($website)->create(['enabled' => true]);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson("/api/websites/{$website->id}/scan")
+        ->assertStatus(202);
+
+    \Illuminate\Support\Facades\Bus::assertDispatched(\App\Jobs\ScanWebsiteJob::class);
+});
+
 test('pages of another user\'s website are rejected', function () {
     $owner = User::factory()->create();
     $intruder = User::factory()->create();

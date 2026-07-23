@@ -109,6 +109,11 @@ function WebsiteDetails() {
                   <p className="text-xs capitalize text-gray-400">{page.page_type}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  {page.page_errors_count > 0 && (
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                      {page.page_errors_count} JS {page.page_errors_count === 1 ? 'error' : 'errors'}
+                    </span>
+                  )}
                   <span className="text-sm text-gray-600">
                     {page.latest_scan?.scan_result?.performance ?? '—'}
                   </span>

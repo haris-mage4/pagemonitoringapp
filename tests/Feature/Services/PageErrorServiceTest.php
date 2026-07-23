@@ -2,7 +2,9 @@
 
 use App\Models\Page;
 use App\Models\PageError;
+use App\Notifications\NewPageErrorsDetected;
 use App\Services\PageErrorService;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Process;
 
 test('check stores new errors returned by the capture script', function () {
@@ -27,7 +29,30 @@ test('check stores new errors returned by the capture script', function () {
     ]);
 });
 
-test('check bumps occurrence_count for a repeat error instead of duplicating', function () {
+test('check notifies the website owner when a new error is found', function () {
+    Notification::fake();
+
+    Process::fake([
+        '*' => Process::result(output: json_encode([
+            'success' => true,
+            'errors' => [
+                ['message' => 'TypeError: x is not a function', 'source' => null, 'stack' => null],
+            ],
+        ])),
+    ]);
+
+    $page = Page::factory()->create();
+
+    app(PageErrorService::class)->check($page);
+
+    Notification::assertSentTo(
+        $page->website->user,
+        NewPageErrorsDetected::class,
+        fn ($notification) => $notification->page->is($page) && $notification->errors->count() === 1
+    );
+});
+
+test('check bumps occurrence_count for a repeat error instead of duplicating and does not re-notify', function () {
     Process::fake([
         '*' => Process::result(output: json_encode([
             'success' => true,
@@ -41,11 +66,14 @@ test('check bumps occurrence_count for a repeat error instead of duplicating', f
     $service = app(PageErrorService::class);
 
     $service->check($page);
+
+    Notification::fake();
     $secondRun = $service->check($page);
 
     expect($secondRun)->toHaveCount(0);
     expect(PageError::where('page_id', $page->id)->count())->toBe(1);
     expect(PageError::where('page_id', $page->id)->first()->occurrence_count)->toBe(2);
+    Notification::assertNothingSent();
 });
 
 test('check returns no errors and logs nothing crashes when the script fails', function () {

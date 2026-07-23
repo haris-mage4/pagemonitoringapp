@@ -29,6 +29,21 @@ test('dashboardSummary aggregates counts and averages', function () {
         ->and($summary['last_scan']->id)->toBe($completed->id);
 });
 
+test('dashboardSummary includes recent page errors scoped to the user', function () {
+    $website = Website::factory()->create();
+    $page = Page::factory()->for($website)->create();
+    $mine = \App\Models\PageError::factory()->for($page)->create(['last_seen_at' => now()]);
+
+    $otherWebsite = Website::factory()->create();
+    $otherPage = Page::factory()->for($otherWebsite)->create();
+    \App\Models\PageError::factory()->for($otherPage)->create();
+
+    $summary = $this->service->dashboardSummary($website->user_id);
+
+    expect($summary['recent_page_errors'])->toHaveCount(1)
+        ->and($summary['recent_page_errors']->first()->id)->toBe($mine->id);
+});
+
 test('trend returns chronological values within the requested range', function () {
     $page = Page::factory()->create();
 

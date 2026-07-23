@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Page;
 use App\Models\PageError;
+use App\Notifications\NewPageErrorsDetected;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
@@ -59,6 +61,11 @@ class PageErrorService
             if ($isNew) {
                 $newErrors[] = $pageError;
             }
+        }
+
+        if ($newErrors !== []) {
+            $page->loadMissing('website.user');
+            $page->website->user->notify(new NewPageErrorsDetected($page, new Collection($newErrors)));
         }
 
         return $newErrors;

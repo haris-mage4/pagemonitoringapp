@@ -20,7 +20,9 @@ Review diff, commit/merge. All 14 phases (0–13) are now done — this closed t
 
 **Phase 16 — Email Notifications (status change) — merged to master.**
 
-**Phase 17 — JS Console Error Capture — done, uncommitted on branch `phase-17-js-error-capture`.** Next: Phase 18 (email notifications on new errors + dashboard error feed — the per-page error UI already shipped as part of 17).
+**Phase 17 — JS Console Error Capture — merged to master.**
+
+**Phase 18 — JS Error Notifications + Dashboard UI — done, uncommitted on branch `phase-18-js-error-ui`.** Next: Phase 19 (extension tests — auth flows, dedup logic already covered inline by earlier phases, mostly a coverage-completeness pass).
 
 Remaining from original spec before calling that part complete:
 - Real Lighthouse CLI is now installed in this sandbox and verified working end-to-end (see "Environment setup" section below) — the "only tested against a fake stand-in" gap from earlier sessions is closed.
@@ -61,6 +63,14 @@ Scans, uptime checks — anything going through `ScanWebsiteJob`/`ScanPageJob`/`
 `.env` had `PAGESPEED_CHROME_PATH=/usr/bin/chromium-browser`, which doesn't exist on this machine (`/bin/google-chrome` is the real binary, per the Phase-14-era environment note above). Lighthouse's own `chrome-launcher` silently falls back to an installed Chrome when the configured path is bad, so every "verified real" Lighthouse scan this whole extension phase (14–16) was quietly running against a Chrome it found on its own, not the one `config('pagespeed.chrome_path')` actually pointed at — the scans were still real, just not proof the config value itself was correct. Puppeteer (used for JS error capture, Phase 17) has no such fallback and failed loud and immediately, which is how this surfaced. Fixed `.env` to the real path. Worth periodically checking whether other "path" configs have the same silent-fallback problem.
 
 ## Log
+
+### 2026-07-23 (Phase 18 JS error notifications + dashboard UI)
+- `NewPageErrorsDetected` notification (`ShouldQueue`) — one email per `PageErrorService::check()` run that finds new errors, bundling all of them (not one email per error) to avoid a burst of mail if a page throws several errors in one check. Wired directly into `PageErrorService::check()` after the upsert loop, same shape as Phase 16's uptime-status notification: fire only on what's genuinely new, never on a repeat bump.
+- `MetricsService::dashboardSummary()` gained `recent_page_errors` (latest 10 across the user's websites only, same `whereHas('page.website', ...)` ownership-scoping pattern as the rest of the method).
+- `WebsiteService::details()` pages now carry `page_errors_count` (`withCount('pageErrors')`) — no N+1, one extra count column per page in the existing query.
+- Frontend: `RecentPageErrors` component on the Dashboard (message, link to the page, last-seen, occurrence badge); `WebsiteDetails` pages list gets a red "N JS errors" badge next to each page that has any (hidden entirely when zero — no zero-badge noise).
+- 4 new Pest tests: notifies on new error (asserts the right page/error-count reached the right owner), does **not** re-notify on a repeat (dedup verified the same way as Phase 16), `dashboardSummary` scoping test (another user's page error never leaks in), `details` page-error-count test. 45 total, all passing.
+- Verified against real MariaDB + the real Vite proxy (not just unit tests): hit `GET /api/dashboard/summary` and `GET /api/websites/{id}` for the test account that already had real captured errors from Phase 17 — confirmed `recent_page_errors` returned the real row and `page_errors_count: 3` on the right page, `0` on unrelated pages.
 
 ### 2026-07-23 (Phase 17 JS console error capture)
 - **Spike decision:** Puppeteer via a small Node sidecar script (`node-scripts/capture-console-errors.js`, own `package.json`/`node_modules`, `puppeteer-core` — not full `puppeteer`, so it reuses the existing Chrome binary instead of downloading a second Chromium), invoked through `Process` exactly like `LighthouseService` does for the `lighthouse` CLI. Rejected Panther/Playwright-PHP: would've added a new Composer dependency + separate driver-binary management for a project that already has a working "shell out to a Node CLI, parse JSON stdout" pattern.

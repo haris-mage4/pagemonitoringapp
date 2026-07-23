@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\PageError;
 use App\Models\Scan;
 use App\Models\ScanResult;
 use App\Models\Website;
@@ -37,6 +38,11 @@ class MetricsService
             'recent_activity' => Scan::with('page.website', 'scanResult')
                 ->whereHas('page.website', fn ($query) => $query->where('user_id', $userId))
                 ->latest('finished_at')
+                ->limit(10)
+                ->get(),
+            'recent_page_errors' => PageError::with('page.website')
+                ->whereHas('page.website', fn ($query) => $query->where('user_id', $userId))
+                ->latest('last_seen_at')
                 ->limit(10)
                 ->get(),
         ];

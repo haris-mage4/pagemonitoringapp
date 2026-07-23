@@ -3,6 +3,7 @@ import apiClient from '../api/client'
 import MetricCard from '../components/MetricCard'
 import TrendChart from '../components/TrendChart'
 import RecentActivity from '../components/RecentActivity'
+import RecentPageErrors from '../components/RecentPageErrors'
 
 const TREND_METRICS = [
   { key: 'performance', title: 'Performance' },
@@ -74,6 +75,11 @@ function Dashboard() {
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-2 text-sm font-medium text-gray-900">Recent Activity</h3>
         <RecentActivity scans={summary?.recent_activity ?? []} />
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <h3 className="mb-2 text-sm font-medium text-gray-900">Recent JS Console Errors</h3>
+        <RecentPageErrors errors={summary?.recent_page_errors ?? []} />
       </div>
     </div>
   )

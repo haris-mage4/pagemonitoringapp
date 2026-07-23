@@ -15,19 +15,27 @@ class MetricsService
     /**
      * @return array<string, mixed>
      */
-    public function dashboardSummary(): array
+    public function dashboardSummary(int $userId): array
     {
-        $lastScan = Scan::with('page.website', 'scanResult')->latest('finished_at')->first();
+        $lastScan = Scan::with('page.website', 'scanResult')
+            ->whereHas('page.website', fn ($query) => $query->where('user_id', $userId))
+            ->latest('finished_at')
+            ->first();
 
         return [
-            'total_websites' => Website::count(),
+            'total_websites' => Website::where('user_id', $userId)->count(),
             'last_scan' => $lastScan,
-            'failed_scans' => Scan::where('status', 'failed')->count(),
+            'failed_scans' => Scan::where('status', 'failed')
+                ->whereHas('page.website', fn ($query) => $query->where('user_id', $userId))
+                ->count(),
             'average_performance' => round(
-                (float) ScanResult::whereNotNull('performance')->avg('performance'),
+                (float) ScanResult::whereNotNull('performance')
+                    ->whereHas('scan.page.website', fn ($query) => $query->where('user_id', $userId))
+                    ->avg('performance'),
                 1
             ),
             'recent_activity' => Scan::with('page.website', 'scanResult')
+                ->whereHas('page.website', fn ($query) => $query->where('user_id', $userId))
                 ->latest('finished_at')
                 ->limit(10)
                 ->get(),
@@ -37,7 +45,7 @@ class MetricsService
     /**
      * @return Collection<int, array{scanned_at: string, value: mixed}>
      */
-    public function trend(string $metric, string $range, ?Carbon $from = null, ?Carbon $to = null): Collection
+    public function trend(int $userId, string $metric, string $range, ?Carbon $from = null, ?Carbon $to = null): Collection
     {
         if (! in_array($metric, self::TREND_METRICS, true)) {
             throw new \InvalidArgumentException("Unsupported trend metric [{$metric}].");
@@ -47,6 +55,9 @@ class MetricsService
 
         return ScanResult::query()
             ->join('scans', 'scans.id', '=', 'scan_results.scan_id')
+            ->join('pages', 'pages.id', '=', 'scans.page_id')
+            ->join('websites', 'websites.id', '=', 'pages.website_id')
+            ->where('websites.user_id', $userId)
             ->whereBetween('scans.created_at', [$from, $to])
             ->orderBy('scans.created_at')
             ->get(['scans.created_at as scanned_at', "scan_results.{$metric} as value"])

@@ -19,12 +19,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        User::firstOrCreate(
+        $user = User::firstOrCreate(
             ['email' => 'test@example.com'],
             User::factory()->raw(['name' => 'Test User', 'email' => 'test@example.com'])
         );
 
         Website::factory()
+            ->for($user)
             ->has(
                 Page::factory()
                     ->count(3)

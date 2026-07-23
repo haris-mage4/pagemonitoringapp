@@ -10,9 +10,9 @@ use Illuminate\Support\Carbon;
 
 class WebsiteService
 {
-    public function list(): Collection
+    public function list(int $userId): Collection
     {
-        return Website::query()->withCount('pages')->get();
+        return Website::query()->where('user_id', $userId)->withCount('pages')->get();
     }
 
     /**
@@ -66,9 +66,9 @@ class WebsiteService
         ];
     }
 
-    public function create(array $data): Website
+    public function create(int $userId, array $data): Website
     {
-        return Website::create($data);
+        return Website::create([...$data, 'user_id' => $userId]);
     }
 
     public function update(Website $website, array $data): Website

@@ -99,6 +99,57 @@ Branch: `phase-13-tests`
 
 ---
 
+---
+
+# Extension — Auth, Uptime, JS Error Monitoring, Email Alerts
+
+See `EXTENSION_SPEC.md` for full spec. Extends phases 0–13 above, same repo/stack.
+
+## Phase 14 — Auth (Sanctum)
+Branch: `phase-14-auth`
+
+- Sanctum install, `users` migration already exists (Laravel default) — add signup/login/logout/password-reset endpoints
+- `websites.user_id` FK migration + scope `WebsiteService` to authenticated user
+- `auth:sanctum` middleware on all website/page/dashboard routes (webhook route stays secret-signed, untouched)
+- Frontend: login/signup pages, auth token storage, axios interceptor, route guards
+
+## Phase 15 — Uptime Monitoring
+Branch: `phase-15-uptime`
+
+- `uptime_checks` migration + model (belongsTo Website)
+- `UptimeService` — HTTP check (status/http_code/response_time_ms)
+- `CheckWebsiteUptimeJob` + `pagespeed:check-uptime` scheduled command (config-driven interval, default 2 min)
+- Dashboard: current status, last checked, response time per website
+
+## Phase 16 — Email Notifications (status change)
+Branch: `phase-16-email-uptime`
+
+- Laravel Mail/Notification classes for online→offline / offline→online
+- Dedup: compare against previous `uptime_checks` row, only notify on actual change
+- Queued mail, `.env` mail driver config (SMTP/SES/Mailgun/SendGrid)
+
+## Phase 17 — JS Console Error Capture (spike + impl)
+Branch: `phase-17-js-error-capture`
+
+- Spike: headless-browser tool choice (Puppeteer/Node sidecar vs Playwright-PHP/Panther) — decide before building
+- `page_errors` migration + model (belongsTo Page)
+- `PageErrorService` — navigate page headless, capture console errors/pageerror, upsert by message (first_seen_at/last_seen_at/occurrence_count)
+- `CheckPageErrorsJob` + scheduled command (config-driven interval, default 60 min)
+
+## Phase 18 — JS Error Notifications + Dashboard UI
+Branch: `phase-18-js-error-ui`
+
+- Email on genuinely-new error (not seen in `page_errors` before)
+- Page Details UI: error log list, filter/search by message/date
+- Dashboard: recent errors feed, per-page error counts
+
+## Phase 19 — Extension Tests
+Branch: `phase-19-extension-tests`
+
+- Pest tests: auth flows, UptimeService, CheckWebsiteUptimeJob, dedup logic, PageErrorService, notification dedup
+
+---
+
 ## Backlog (not phased yet — see CLAUDE.md → Future Features)
 
 - Performance regression detection (needs design: baseline window, threshold config, comparison service)

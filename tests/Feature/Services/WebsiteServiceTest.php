@@ -13,14 +13,16 @@ beforeEach(function () {
 test('list returns websites with pages count', function () {
     $website = Website::factory()->has(Page::factory()->count(2))->create();
 
-    $result = $this->service->list();
+    $result = $this->service->list($website->user_id);
 
     expect($result->first()->id)->toBe($website->id)
         ->and($result->first()->pages_count)->toBe(2);
 });
 
 test('create persists a website', function () {
-    $website = $this->service->create([
+    $user = \App\Models\User::factory()->create();
+
+    $website = $this->service->create($user->id, [
         'name' => 'Acme',
         'base_url' => 'https://acme.test',
         'environment' => 'production',

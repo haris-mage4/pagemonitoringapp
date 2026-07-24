@@ -44,29 +44,34 @@ test('dashboardSummary includes recent page errors scoped to the user', function
         ->and($summary['recent_page_errors']->first()->id)->toBe($mine->id);
 });
 
-test('trend returns chronological values within the requested range', function () {
+test('trend returns only the last 5 scans in chronological order', function () {
     $page = Page::factory()->create();
 
-    $old = Scan::factory()->for($page)->create(['created_at' => now()->subDays(10)]);
-    ScanResult::factory()->for($old)->create(['performance' => 40]);
+    foreach ([10, 20, 30, 40, 50, 60, 70] as $i => $performance) {
+        $scan = Scan::factory()->for($page)->create(['created_at' => now()->subMinutes(70 - $i * 10)]);
+        ScanResult::factory()->for($scan)->create(['performance' => $performance]);
+    }
 
-    $recent = Scan::factory()->for($page)->create(['created_at' => now()->subHour()]);
-    ScanResult::factory()->for($recent)->create(['performance' => 70]);
+    $trend = $this->service->trend($page->website->user_id, 'performance');
 
-    $trend = $this->service->trend($page->website->user_id, 'performance', '7d');
-
-    expect($trend)->toHaveCount(1)
-        ->and($trend->first()['value'])->toBe(70);
+    expect($trend)->toHaveCount(5)
+        ->and($trend->pluck('value')->all())->toBe([30, 40, 50, 60, 70]);
 });
 
 test('trend rejects an unsupported metric', function () {
     $website = Website::factory()->create();
 
-    $this->service->trend($website->user_id, 'bogus', '7d');
+    $this->service->trend($website->user_id, 'bogus');
 })->throws(InvalidArgumentException::class);
 
-test('trend requires from/to for a custom range', function () {
+test('dashboardSummary includes each page with its latest scan', function () {
     $website = Website::factory()->create();
+    $page = Page::factory()->for($website)->create();
+    $scan = Scan::factory()->for($page)->create(['status' => 'completed', 'finished_at' => now()]);
+    ScanResult::factory()->for($scan)->create(['performance' => 88]);
 
-    $this->service->trend($website->user_id, 'performance', 'custom');
-})->throws(InvalidArgumentException::class);
+    $summary = $this->service->dashboardSummary($website->user_id);
+
+    expect($summary['pages'])->toHaveCount(1)
+        ->and($summary['pages']->first()->latestScan->id)->toBe($scan->id);
+});

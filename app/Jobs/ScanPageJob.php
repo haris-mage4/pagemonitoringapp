@@ -21,6 +21,7 @@ class ScanPageJob implements ShouldQueue
         public readonly ?Scan $scan = null,
     ) {
         $this->timeout = (int) config('pagespeed.scan_timeout') + 30;
+        $this->onQueue('scans');
     }
 
     /**
@@ -41,6 +42,7 @@ class ScanPageJob implements ShouldQueue
 
     public function handle(ScanService $scans): void
     {
-        $scans->scanPage($this->page, $this->trigger, $this->scan);
+        // Jobs queued before this property existed deserialize without it set.
+        $scans->scanPage($this->page, $this->trigger, isset($this->scan) ? $this->scan : null);
     }
 }

@@ -1,21 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import apiClient from '../api/client'
 import MetricCard from '../components/MetricCard'
 import TrendChart from '../components/TrendChart'
 import RecentActivity from '../components/RecentActivity'
 import RecentPageErrors from '../components/RecentPageErrors'
+import DashboardPageScanList from '../components/DashboardPageScanList'
 
 const TREND_METRICS = [
-  { key: 'performance', title: 'Performance' },
-  { key: 'lcp', title: 'LCP' },
-  { key: 'cls', title: 'CLS' },
-  { key: 'tbt', title: 'TBT' },
+  { key: 'performance', title: 'Performance (Last 5 Scans)' },
+  { key: 'lcp', title: 'LCP (Last 5 Scans)' },
+  { key: 'cls', title: 'CLS (Last 5 Scans)' },
+  { key: 'tbt', title: 'TBT (Last 5 Scans)' },
 ]
 
 function Dashboard() {
   const [summary, setSummary] = useState(null)
   const [error, setError] = useState(null)
-  const [ranges, setRanges] = useState({ performance: '7d', lcp: '7d', cls: '7d', tbt: '7d' })
   const [trends, setTrends] = useState({ performance: [], lcp: [], cls: [], tbt: [] })
 
   useEffect(() => {
@@ -25,17 +25,13 @@ function Dashboard() {
       .catch(() => setError('Could not load dashboard data.'))
   }, [])
 
-  const fetchTrend = useCallback((metric, range) => {
-    apiClient
-      .get(`/dashboard/trend/${metric}`, { params: { range } })
-      .then((res) => setTrends((prev) => ({ ...prev, [metric]: res.data })))
-  }, [])
-
   useEffect(() => {
-    TREND_METRICS.forEach(({ key }) => fetchTrend(key, ranges[key]))
-  }, [ranges, fetchTrend])
-
-  const setRange = (metric, range) => setRanges((prev) => ({ ...prev, [metric]: range }))
+    TREND_METRICS.forEach(({ key }) => {
+      apiClient
+        .get(`/dashboard/trend/${key}`)
+        .then((res) => setTrends((prev) => ({ ...prev, [key]: res.data })))
+    })
+  }, [])
 
   if (error) {
     return <p className="text-sm text-red-600">{error}</p>
@@ -61,20 +57,18 @@ function Dashboard() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {TREND_METRICS.map(({ key, title }) => (
-          <TrendChart
-            key={key}
-            title={title}
-            data={trends[key]}
-            range={ranges[key]}
-            onRangeChange={(range) => setRange(key, range)}
-            metric={key}
-          />
+          <TrendChart key={key} title={title} data={trends[key]} metric={key} />
         ))}
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <h3 className="mb-2 text-sm font-medium text-gray-900">Recent Activity</h3>
         <RecentActivity scans={summary?.recent_activity ?? []} />
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <h3 className="mb-2 text-sm font-medium text-gray-900">Pages — Scan List</h3>
+        <DashboardPageScanList pages={summary?.pages ?? []} />
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-4">

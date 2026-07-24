@@ -10,12 +10,6 @@ import {
 } from 'recharts'
 import { getThresholds, statusColor, STATUS_COLORS, STATUS_LABELS } from '../lib/thresholds'
 
-const RANGES = [
-  { value: '24h', label: '24h' },
-  { value: '7d', label: '7d' },
-  { value: '30d', label: '30d' },
-]
-
 function formatTick(value) {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString()
@@ -48,7 +42,7 @@ function thresholdBands(metric, maxValue) {
       ]
 }
 
-function TrendChart({ title, data, range, onRangeChange, metric }) {
+function TrendChart({ title, data, metric }) {
   const maxValue = data.reduce((max, row) => Math.max(max, row.value ?? 0), 0)
   const bands = thresholdBands(metric, maxValue)
 
@@ -56,22 +50,6 @@ function TrendChart({ title, data, range, onRangeChange, metric }) {
     <div className="rounded-lg border border-gray-200 bg-white p-4">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-900">{title}</h3>
-        {onRangeChange && (
-          <div className="flex gap-1">
-            {RANGES.map((r) => (
-              <button
-                key={r.value}
-                type="button"
-                onClick={() => onRangeChange(r.value)}
-                className={`rounded px-2 py-0.5 text-xs font-medium ${
-                  range === r.value ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
       <div className="h-48">
         {data.length === 0 ? (

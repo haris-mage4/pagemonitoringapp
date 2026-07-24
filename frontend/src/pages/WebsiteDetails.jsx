@@ -5,6 +5,7 @@ import WebsiteCard from '../components/WebsiteCard'
 import TrendChart from '../components/TrendChart'
 import StatusBadge from '../components/StatusBadge'
 import AddPageForm from '../components/AddPageForm'
+import EditWebsiteForm from '../components/EditWebsiteForm'
 
 function WebsiteDetails() {
   const { websiteId } = useParams()
@@ -12,6 +13,7 @@ function WebsiteDetails() {
   const [error, setError] = useState(null)
   const [scanning, setScanning] = useState(false)
   const [scanMessage, setScanMessage] = useState(null)
+  const [editing, setEditing] = useState(false)
 
   const load = useCallback(() => {
     setError(null)
@@ -55,15 +57,27 @@ function WebsiteDetails() {
 
   return (
     <div className="space-y-6">
-      <WebsiteCard
-        website={website}
-        currentScore={currentScore}
-        previousScore={previousScore}
-        nextScheduledScan={nextScheduledScan}
-        onScan={handleScan}
-        scanning={scanning}
-        scanMessage={scanMessage}
-      />
+      {editing ? (
+        <EditWebsiteForm
+          website={website}
+          onCancel={() => setEditing(false)}
+          onSaved={(updated) => {
+            setDetails((current) => ({ ...current, website: updated }))
+            setEditing(false)
+          }}
+        />
+      ) : (
+        <WebsiteCard
+          website={website}
+          currentScore={currentScore}
+          previousScore={previousScore}
+          nextScheduledScan={nextScheduledScan}
+          onScan={handleScan}
+          scanning={scanning}
+          scanMessage={scanMessage}
+          onEdit={() => setEditing(true)}
+        />
+      )}
 
       <TrendChart title="Performance History" data={chartData} metric="performance" />
 

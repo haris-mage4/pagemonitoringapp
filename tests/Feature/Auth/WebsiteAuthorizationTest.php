@@ -53,6 +53,21 @@ test('update rejects another user\'s website', function () {
         ->assertStatus(403);
 });
 
+test('update ignores an attempt to change base_url', function () {
+    $owner = User::factory()->create();
+    $website = Website::factory()->for($owner)->create(['base_url' => 'https://original.test']);
+
+    $response = $this->actingAs($owner, 'sanctum')->putJson("/api/websites/{$website->id}", [
+        'name' => 'Renamed',
+        'base_url' => 'https://hijacked.test',
+        'environment' => $website->environment,
+        'schedule' => $website->schedule,
+    ]);
+
+    $response->assertOk()->assertJsonPath('base_url', 'https://original.test');
+    $this->assertDatabaseHas('websites', ['id' => $website->id, 'base_url' => 'https://original.test']);
+});
+
 test('destroy rejects another user\'s website', function () {
     $owner = User::factory()->create();
     $intruder = User::factory()->create();

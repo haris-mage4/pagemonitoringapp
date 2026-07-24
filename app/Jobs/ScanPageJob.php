@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Page;
+use App\Models\Scan;
 use App\Services\ScanService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -17,6 +18,7 @@ class ScanPageJob implements ShouldQueue
     public function __construct(
         public readonly Page $page,
         public readonly string $trigger,
+        public readonly ?Scan $scan = null,
     ) {
         $this->timeout = (int) config('pagespeed.scan_timeout') + 30;
     }
@@ -39,6 +41,6 @@ class ScanPageJob implements ShouldQueue
 
     public function handle(ScanService $scans): void
     {
-        $scans->scanPage($this->page, $this->trigger);
+        $scans->scanPage($this->page, $this->trigger, $this->scan);
     }
 }

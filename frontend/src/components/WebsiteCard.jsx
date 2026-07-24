@@ -1,6 +1,6 @@
 import StatusBadge from './StatusBadge'
 
-function WebsiteCard({ website, currentScore, previousScore, nextScheduledScan, onScan, scanning, scanMessage }) {
+function WebsiteCard({ website, currentScore, previousScore, nextScheduledScan, onScan, scanning, scanMessage, onEdit }) {
   const delta = currentScore != null && previousScore != null ? currentScore - previousScore : null
 
   return (
@@ -12,6 +12,15 @@ function WebsiteCard({ website, currentScore, previousScore, nextScheduledScan, 
         </div>
         <div className="flex items-center gap-3">
           {scanMessage && <span className="text-xs text-gray-500">{scanMessage}</span>}
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Edit
+            </button>
+          )}
           {onScan && (
             <button
               type="button"

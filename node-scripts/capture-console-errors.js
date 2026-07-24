@@ -19,7 +19,10 @@ async function main() {
 
   try {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 800 });
+    await page.setViewport({ width: 375, height: 667, isMobile: true, hasTouch: true });
+    await page.setUserAgent(
+      'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+    );
 
     page.on('console', (msg) => {
       if (msg.type() === 'error') {

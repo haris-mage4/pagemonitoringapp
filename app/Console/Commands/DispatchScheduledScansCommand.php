@@ -28,7 +28,7 @@ class DispatchScheduledScansCommand extends Command
             ->where('enabled', true)
             ->each(function (Website $website) {
                 if ($this->isDue($website)) {
-                    ScanWebsiteJob::dispatch($website, 'schedule');
+                    ScanWebsiteJob::dispatchSync($website, 'schedule');
                     $this->info("Dispatched scan for website #{$website->id} ({$website->name}).");
                 }
             });

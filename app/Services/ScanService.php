@@ -9,14 +9,18 @@ class ScanService
 {
     public function __construct(private readonly LighthouseService $lighthouse) {}
 
-    public function scanPage(Page $page, string $trigger): Scan
+    public function scanPage(Page $page, string $trigger, ?Scan $scan = null): Scan
     {
-        $scan = Scan::create([
-            'page_id' => $page->id,
-            'status' => 'running',
-            'trigger' => $trigger,
-            'started_at' => now(),
-        ]);
+        if ($scan) {
+            $scan->update(['status' => 'running', 'started_at' => now()]);
+        } else {
+            $scan = Scan::create([
+                'page_id' => $page->id,
+                'status' => 'running',
+                'trigger' => $trigger,
+                'started_at' => now(),
+            ]);
+        }
 
         $result = $this->lighthouse->scan($page->url);
 

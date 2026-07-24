@@ -24,7 +24,6 @@ class UpdateWebsiteRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'base_url' => ['sometimes', 'required', 'url', 'max:2048'],
             'environment' => ['sometimes', 'required', 'string', 'in:production,staging'],
             'schedule' => ['sometimes', 'required', 'string', 'in:hourly,every_6_hours,daily,weekly'],
             'enabled' => ['sometimes', 'boolean'],
